@@ -1,0 +1,66 @@
+import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+import { UnauthorizedError } from '@errors/AppError';
+
+/**
+ * Verifica el JWT en cada petición protegida.
+ * Si el token es válido, adjunta los datos del usuario en req.user.
+ * Si es inválido o expirado, lanza UnauthorizedError.
+ *
+ * Uso en rutas:
+ *   router.get('/ruta', authenticate, controller.metodo)
+ */
+export const authenticate = (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): void => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    // Verificar que el header Authorization existe y tiene formato correcto
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedError('Token de acceso requerido');
+    }
+
+    // Extraer el token (quitar "Bearer ")
+    const token = authHeader.split(' ')[1];
+
+    // Verificar firma y expiración
+    const payload = jwt.verify(token, process.env.JWT_SECRET as string) as {
+      sub:       number;
+      email:     string;
+      role:      string;
+      id_perfil: number | null;
+      estado:    string;
+    };
+
+    // Verificar que la cuenta sigue activa
+    if (payload.estado !== 'activo') {
+      throw new UnauthorizedError('Tu cuenta está suspendida o inactiva');
+    }
+
+    // Adjuntar datos del usuario para uso en controllers
+    req.user = {
+      id:        payload.sub,
+      email:     payload.email,
+      role:      payload.role as 'paciente' | 'nutricionista' | 'administrador',
+      id_perfil: payload.id_perfil,
+      estado:    payload.estado,
+    };
+
+    next();
+
+  } catch (error) {
+    // Diferenciar token expirado de token inválido
+    if (error instanceof jwt.TokenExpiredError) {
+      next(new UnauthorizedError('Token expirado. Usa el refresh token para renovarlo'));
+      return;
+    }
+    if (error instanceof jwt.JsonWebTokenError) {
+      next(new UnauthorizedError('Token inválido'));
+      return;
+    }
+    next(error);
+  }
+};
