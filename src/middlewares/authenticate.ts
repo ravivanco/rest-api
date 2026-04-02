@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { UnauthorizedError } from '@errors/AppError';
+import { Role } from '@shared/constants/roles';
 
 /**
  * Verifica el JWT en cada petición protegida.
@@ -27,10 +28,10 @@ export const authenticate = (
     const token = authHeader.split(' ')[1];
 
     // Verificar firma y expiración
-    const payload = jwt.verify(token, process.env.JWT_SECRET as string) as {
+    const payload = jwt.verify(token, process.env.JWT_SECRET as string) as unknown as {
       sub:       number;
       email:     string;
-      role:      string;
+      role:      Role;
       id_perfil: number | null;
       estado:    string;
     };
@@ -44,7 +45,7 @@ export const authenticate = (
     req.user = {
       id:        payload.sub,
       email:     payload.email,
-      role:      payload.role as 'paciente' | 'nutricionista' | 'administrador',
+      role:      payload.role,
       id_perfil: payload.id_perfil,
       estado:    payload.estado,
     };

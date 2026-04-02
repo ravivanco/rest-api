@@ -1,8 +1,10 @@
-import { Router, Request, Response } from 'express';
-import { pool } from '@database/pool';
-
-// Importar módulos conforme se implementan
-import { authRouter } from './modules/auth/routes/auth.routes';
+import { Router, Request, Response }   from 'express';
+import { pool }                        from '@database/pool';
+import { authRouter }                  from './modules/auth/routes/auth.routes';
+import { patientsRouter }              from './modules/patients/routes/patients.routes';
+import { patientProfileRouter }        from './modules/patient-profile/routes/patient-profile.routes';
+import { clinicalEvaluationsRouter }   from './modules/clinical-evaluations/routes/clinical-evaluations.routes';
+import { nutritionPlansRouter }        from './modules/nutrition-plans/routes/nutrition-plans.routes';
 
 const router = Router();
 
@@ -38,8 +40,18 @@ router.get('/health', async (_req: Request, res: Response): Promise<void> => {
   }
 });
 
-// Módulos registrados
-router.use('/auth', authRouter);
+// ── Módulos activos ─────────────────────────────────────────────────────────
+router.use('/auth',                 authRouter);
+router.use('/patients',             patientsRouter);
+router.use('/patient-profile',      patientProfileRouter);
+router.use('/clinical-evaluations', clinicalEvaluationsRouter);
+router.use('/nutrition-plans',      nutritionPlansRouter);
+
+// Próximos módulos:
+// router.use('/foods',            foodsRouter);
+// router.use('/dishes',           dishesRouter);
+// router.use('/exercises',        exercisesRouter);
+// router.use('/meal-tracking',    mealTrackingRouter);
 
 // ── Módulos — se van agregando aquí conforme se implementan ──────────────
 // import { authRouter } from './modules/auth/routes/auth.routes';

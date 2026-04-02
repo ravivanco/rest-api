@@ -1,0 +1,165 @@
+import { patientProfileRepository } from '../repository/patient-profile.repository';
+import { SaveProfileFormDto }        from '../dto/patient-profile.dto';
+import { NotFoundError, ForbiddenError } from '@errors/AppError';
+
+export const patientProfileService = {
+
+  /**
+   * Obtiene el formulario completo del paciente con todas sus relaciones.
+   * Incluye condiciones, preferencias y deportes.
+   */
+  async getFullProfile(perfilId: number) {
+    const perfil = await patientProfileRepository.findByPerfilId(perfilId);
+
+    if (!perfil) {
+      throw new NotFoundError('Perfil del paciente');
+    }
+
+    // Obtener todas las relaciones en paralelo (más eficiente)
+    const [condiciones, preferencias, deportes] = await Promise.all([
+      patientProfileRepository.findCondiciones(perfilId),
+      patientProfileRepository.findPreferencias(perfilId),
+      patientProfileRepository.findDeportes(perfilId),
+    ]);
+
+    return {
+      ...perfil,
+      condiciones,
+      alimentos_preferidos:   preferencias.filter(p => p.tipo === 'preferido'),
+      alimentos_restringidos: preferencias.filter(p => p.tipo === 'restringido'),
+      deportes,
+    };
+  },
+
+
+  /**
+   * Obtiene el formulario del paciente buscando por id_usuario.
+   * Usado por la nutricionista para ver el perfil de un paciente.
+   */
+  async getProfileByUserId(userId: number) {
+    const perfil = await patientProfileRepository.findByUserId(userId);
+
+    if (!perfil) {
+      throw new NotFoundError('Perfil del paciente');
+    }
+
+    const [condiciones, preferencias, deportes] = await Promise.all([
+      patientProfileRepository.findCondiciones(perfil.id_perfil),
+      patientProfileRepository.findPreferencias(perfil.id_perfil),
+      patientProfileRepository.findDeportes(perfil.id_perfil),
+    ]);
+
+    return {
+      ...perfil,
+      condiciones,
+      alimentos_preferidos:   preferencias.filter(p => p.tipo === 'preferido'),
+      alimentos_restringidos: preferencias.filter(p => p.tipo === 'restringido'),
+      deportes,
+    };
+  },
+
+
+  /**
+   * Guarda el formulario completo del paciente.
+   * Al guardar todos los campos requeridos, marca formulario_completado = true.
+   */
+  async saveFullForm(perfilId: number, data: SaveProfileFormDto) {
+    await patientProfileRepository.saveFullForm(perfilId, {
+      nivel_actividad_fisica:     data.nivel_actividad_fisica,
+      objetivo:                   data.objetivo,
+      alergias_intolerancias:     data.alergias_intolerancias ?? null,
+      restricciones_alimenticias: data.restricciones_alimenticias ?? null,
+      condiciones:                data.condiciones,
+      alimentos_preferidos:       data.alimentos_preferidos,
+      alimentos_restringidos:     data.alimentos_restringidos,
+      deportes:                   data.deportes,
+    });
+
+    // Retornar el perfil actualizado
+    return this.getFullProfile(perfilId);
+  },
+
+
+  /**
+   * Obtiene el catálogo de condiciones médicas disponibles.
+   */
+  async getCatalogoCondiciones() {
+    return patientProfileRepository.findCatalogoCondiciones();
+  },
+
+
+  /**
+   * Agrega una condición médica al perfil del paciente.
+   */
+  async addCondicion(perfilId: number, idCondicion: number) {
+    // Verificar que el perfil existe
+    const perfil = await patientProfileRepository.findByPerfilId(perfilId);
+    if (!perfil) throw new NotFoundError('Perfil del paciente');
+
+    await patientProfileRepository.addCondicion(perfilId, idCondicion);
+  },
+
+
+  /**
+   * Elimina una condición médica del perfil.
+   */
+  async removeCondicion(perfilId: number, idCondicion: number) {
+    await patientProfileRepository.removeCondicion(perfilId, idCondicion);
+  },
+
+
+  /**
+   * Agrega una preferencia alimenticia al perfil.
+   */
+  async addPreferencia(perfilId: number, idAlimento: number, tipo: string) {
+    const perfil = await patientProfileRepository.findByPerfilId(perfilId);
+    if (!perfil) throw new NotFoundError('Perfil del paciente');
+
+    await patientProfileRepository.addPreferencia(perfilId, idAlimento, tipo);
+  },
+
+
+  /**
+   * Elimina una preferencia alimenticia del perfil.
+   */
+  async removePreferencia(perfilId: number, idPreferencia: number) {
+    await patientProfileRepository.removePreferencia(perfilId, idPreferencia);
+  },
+
+
+  /**
+   * Agrega un deporte de interés al perfil.
+   */
+  async addDeporte(perfilId: number, deporte: string) {
+    const perfil = await patientProfileRepository.findByPerfilId(perfilId);
+    if (!perfil) throw new NotFoundError('Perfil del paciente');
+
+    await patientProfileRepository.addDeporte(perfilId, deporte);
+  },
+
+
+  /**
+   * Elimina un deporte de interés del perfil.
+   */
+  async removeDeporte(perfilId: number, idActividad: number) {
+    await patientProfileRepository.removeDeporte(perfilId, idActividad);
+  },
+
+
+  /**
+   * Verifica que el paciente autenticado sea el dueño del perfil.
+   * La nutricionista puede ver cualquier perfil sin restricción.
+   */
+  verifyOwnership(
+    perfilId:    number,
+    currentUser: { role: string; id_perfil: number | null }
+  ): void {
+    if (currentUser.role === 'nutricionista' || currentUser.role === 'administrador') {
+      return;
+    }
+    if (currentUser.id_perfil !== perfilId) {
+      throw new ForbiddenError('Solo puedes modificar tu propio perfil');
+    }
+  },
+
+};
