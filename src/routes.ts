@@ -5,6 +5,9 @@ import { patientsRouter }              from './modules/patients/routes/patients.
 import { patientProfileRouter }        from './modules/patient-profile/routes/patient-profile.routes';
 import { clinicalEvaluationsRouter }   from './modules/clinical-evaluations/routes/clinical-evaluations.routes';
 import { nutritionPlansRouter }        from './modules/nutrition-plans/routes/nutrition-plans.routes';
+import { foodsRouter }                 from './modules/foods/routes/foods.routes';
+import { dishesRouter }                from './modules/dishes/routes/dishes.routes';
+import { exercisesRouter }             from './modules/exercises/routes/exercises.routes';
 
 const router = Router();
 
@@ -46,6 +49,9 @@ router.use('/patients',             patientsRouter);
 router.use('/patient-profile',      patientProfileRouter);
 router.use('/clinical-evaluations', clinicalEvaluationsRouter);
 router.use('/nutrition-plans',      nutritionPlansRouter);
+router.use('/foods',                foodsRouter);
+router.use('/dishes',               dishesRouter);
+router.use('/exercises',            exercisesRouter);
 
 // Próximos módulos:
 // router.use('/foods',            foodsRouter);
