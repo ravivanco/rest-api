@@ -8,6 +8,11 @@ import { nutritionPlansRouter }        from './modules/nutrition-plans/routes/nu
 import { foodsRouter }                 from './modules/foods/routes/foods.routes';
 import { dishesRouter }                from './modules/dishes/routes/dishes.routes';
 import { exercisesRouter }             from './modules/exercises/routes/exercises.routes';
+import { mealTrackingRouter }          from './modules/meal-tracking/routes/meal-tracking.routes';
+import { exerciseTrackingRouter }      from './modules/exercise-tracking/routes/exercise-tracking.routes';
+import { weightRecordsRouter }         from './modules/weight-records/routes/weight-records.routes';
+import { calorieControlRouter }        from './modules/calorie-control/routes/calorie-control.routes';
+import { additionalIntakeRouter }      from './modules/additional-intake/routes/additional-intake.routes';
 
 const router = Router();
 
@@ -15,7 +20,7 @@ const router = Router();
  * @swagger
  * /health:
  *   get:
- *     summary: Estado del servidor y base de datos
+ *     summary: Estado del servidor
  *     tags: [Health]
  *     security: []
  *     responses:
@@ -28,18 +33,14 @@ router.get('/health', async (_req: Request, res: Response): Promise<void> => {
     res.status(200).json({
       success: true,
       data: {
-        status:      'ok',
-        database:    'connected',
-        db_time:     result.rows[0].db_time,
+        status: 'ok', database: 'connected',
+        db_time: result.rows[0].db_time,
         environment: process.env.NODE_ENV,
-        timestamp:   new Date().toISOString(),
+        timestamp: new Date().toISOString(),
       },
     });
   } catch {
-    res.status(503).json({
-      success: false,
-      data: { status: 'degraded', database: 'disconnected' },
-    });
+    res.status(503).json({ success: false, data: { status: 'degraded' } });
   }
 });
 
@@ -52,7 +53,11 @@ router.use('/nutrition-plans',      nutritionPlansRouter);
 router.use('/foods',                foodsRouter);
 router.use('/dishes',               dishesRouter);
 router.use('/exercises',            exercisesRouter);
-
+router.use('/meal-tracking',        mealTrackingRouter);
+router.use('/exercise-tracking',    exerciseTrackingRouter);
+router.use('/weight-records',       weightRecordsRouter);
+router.use('/calorie-control',      calorieControlRouter);
+router.use('/additional-intake',    additionalIntakeRouter);
 // Próximos módulos:
 // router.use('/foods',            foodsRouter);
 // router.use('/dishes',           dishesRouter);
