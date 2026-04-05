@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ForbiddenError, UnauthorizedError } from '@errors/AppError';
-import { Role } from '@types/common.types';
+import { Role } from '@shared/constants/roles';
 
 /**
  * Verifica que el usuario tenga el rol requerido para acceder a la ruta.

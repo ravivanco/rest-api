@@ -10,17 +10,17 @@ const CATEGORIAS_ALIMENTO = [
  */
 export const CreateFoodDto = z.object({
   nombre: z
-    .string({ error: 'El nombre es requerido' })
+    .string({ message: 'El nombre es requerido' })
     .min(2,   'El nombre debe tener al menos 2 caracteres')
     .max(150, 'El nombre no puede superar 150 caracteres')
     .trim(),
 
   categoria: z.enum(CATEGORIAS_ALIMENTO, {
-    error: `La categoría debe ser una de: ${CATEGORIAS_ALIMENTO.join(', ')}`,
+    message: `La categoría debe ser una de: ${CATEGORIAS_ALIMENTO.join(', ')}`,
   }),
 
   calorias_por_100g: z
-    .number({ error: 'Las calorías son requeridas' })
+    .number({ message: 'Las calorías son requeridas' })
     .int('Las calorías deben ser un número entero')
     .min(0,    'Las calorías no pueden ser negativas')
     .max(9000, 'Las calorías máximas por 100g son 9000 kcal'),

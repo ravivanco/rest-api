@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: dk-fitt-api
+    runtime: node
+    region: oregon
+
+    # Comandos de build y arranque
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+
+    # Variables de entorno (se definen en el dashboard de Render)
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+
+    # Plan gratuito de Render
+    plan: free
+
+    # Healthcheck — Render verifica que el servicio está vivo
+    healthCheckPath: /api/health

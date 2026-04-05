@@ -8,7 +8,7 @@ const NIVELES_ACTIVIDAD  = ['sedentario', 'bajo', 'medio', 'alto'] as const;
  */
 export const CreateExerciseDto = z.object({
   nombre: z
-    .string({ error: 'El nombre es requerido' })
+    .string({ message: 'El nombre es requerido' })
     .min(2,   'El nombre debe tener al menos 2 caracteres')
     .max(150, 'Máximo 150 caracteres')
     .trim(),
@@ -20,25 +20,25 @@ export const CreateExerciseDto = z.object({
     .nullable(),
 
   categoria: z
-    .string({ error: 'La categoría es requerida' })
+    .string({ message: 'La categoría es requerida' })
     .min(2)
     .max(60)
     .trim(),
 
   duracion_min: z
-    .number({ error: 'La duración es requerida' })
+    .number({ message: 'La duración es requerida' })
     .int()
     .min(1,    'La duración mínima es 1 minuto')
     .max(480,  'La duración máxima es 480 minutos (8 horas)'),
 
   frecuencia_semanal: z
-    .number({ error: 'La frecuencia semanal es requerida' })
+    .number({ message: 'La frecuencia semanal es requerida' })
     .int()
     .min(1, 'La frecuencia mínima es 1 día por semana')
     .max(7, 'La frecuencia máxima es 7 días por semana'),
 
   intensidad: z.enum(INTENSIDADES, {
-    error: 'La intensidad es requerida',
+    message: 'La intensidad es requerida',
   }),
 
   nivel_actividad_recomendado: z

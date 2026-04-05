@@ -9,11 +9,11 @@ export const SaveProfileFormDto = z.object({
 
   nivel_actividad_fisica: z.enum(
     ['sedentario', 'bajo', 'medio', 'alto'] as const,
-    { error: 'El nivel de actividad física es requerido' }
+    { message: 'El nivel de actividad física es requerido' }
   ),
 
   objetivo: z
-    .string({ error: 'El objetivo es requerido' })
+    .string({ message: 'El objetivo es requerido' })
     .min(3,   'El objetivo debe tener al menos 3 caracteres')
     .max(120, 'El objetivo no puede superar 120 caracteres'),
 
@@ -62,7 +62,7 @@ export type SaveProfileFormDto = z.infer<typeof SaveProfileFormDto>;
  */
 export const AddCondicionDto = z.object({
   id_condicion: z
-    .number({ error: 'El ID de la condición es requerido' })
+    .number({ message: 'El ID de la condición es requerido' })
     .int()
     .positive(),
 });
@@ -75,12 +75,12 @@ export type AddCondicionDto = z.infer<typeof AddCondicionDto>;
  */
 export const AddPreferenciaDto = z.object({
   id_alimento: z
-    .number({ error: 'El ID del alimento es requerido' })
+    .number({ message: 'El ID del alimento es requerido' })
     .int()
     .positive(),
 
   tipo: z.enum(['preferido', 'restringido'] as const, {
-    error: "El tipo debe ser 'preferido' o 'restringido'",
+    message: "El tipo debe ser 'preferido' o 'restringido'",
   }),
 });
 
@@ -92,7 +92,7 @@ export type AddPreferenciaDto = z.infer<typeof AddPreferenciaDto>;
  */
 export const AddDeporteDto = z.object({
   deporte: z
-    .string({ error: 'El nombre del deporte es requerido' })
+    .string({ message: 'El nombre del deporte es requerido' })
     .min(2,  'El deporte debe tener al menos 2 caracteres')
     .max(60, 'El deporte no puede superar 60 caracteres')
     .trim(),

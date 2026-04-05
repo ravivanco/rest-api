@@ -6,7 +6,7 @@ import { z } from 'zod';
  */
 export const CreatePlanDto = z.object({
   id_evaluacion: z
-    .number({ error: 'El ID de la evaluación es requerido' })
+    .number({ message: 'El ID de la evaluación es requerido' })
     .int()
     .positive(),
 
@@ -25,7 +25,7 @@ export type CreatePlanDto = z.infer<typeof CreatePlanDto>;
  */
 export const ActivatePlanDto = z.object({
   fecha_inicio: z
-    .string({ error: 'La fecha de inicio es requerida' })
+    .string({ message: 'La fecha de inicio es requerida' })
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido. Usa YYYY-MM-DD'),
 
   fecha_fin: z
@@ -42,16 +42,16 @@ export type ActivatePlanDto = z.infer<typeof ActivatePlanDto>;
  */
 export const CreateWeekDto = z.object({
   numero: z
-    .number({ error: 'El número de semana es requerido' })
+    .number({ message: 'El número de semana es requerido' })
     .int()
     .min(1, 'El número de semana mínimo es 1'),
 
   fecha_inicio_semana: z
-    .string({ error: 'La fecha de inicio de la semana es requerida' })
+    .string({ message: 'La fecha de inicio de la semana es requerida' })
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato inválido. Usa YYYY-MM-DD'),
 
   fecha_fin_semana: z
-    .string({ error: 'La fecha de fin de la semana es requerida' })
+    .string({ message: 'La fecha de fin de la semana es requerida' })
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato inválido. Usa YYYY-MM-DD'),
 });
 export type CreateWeekDto = z.infer<typeof CreateWeekDto>;
@@ -62,17 +62,17 @@ export type CreateWeekDto = z.infer<typeof CreateWeekDto>;
  */
 export const CreateMenuDto = z.object({
   id_tiempo_comida: z
-    .number({ error: 'El tiempo de comida es requerido' })
+    .number({ message: 'El tiempo de comida es requerido' })
     .int()
     .min(1).max(5),
 
   id_plato: z
-    .number({ error: 'El plato es requerido' })
+    .number({ message: 'El plato es requerido' })
     .int()
     .positive(),
 
   calorias_aportadas: z
-    .number({ error: 'Las calorías aportadas son requeridas' })
+    .number({ message: 'Las calorías aportadas son requeridas' })
     .int()
     .min(0,    'Las calorías no pueden ser negativas')
     .max(5000, 'Las calorías no pueden superar 5000 por menú'),
@@ -85,7 +85,7 @@ export type CreateMenuDto = z.infer<typeof CreateMenuDto>;
  */
 export const CreateDailyExerciseDto = z.object({
   id_ejercicio: z
-    .number({ error: 'El ID del ejercicio es requerido' })
+    .number({ message: 'El ID del ejercicio es requerido' })
     .int()
     .positive(),
 });

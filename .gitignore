@@ -1,6 +1,36 @@
+# ── Dependencias ─────────────────────────────────────────────
 node_modules/
+
+# ── Build compilado ───────────────────────────────────────────
 dist/
+
+# ── Variables de entorno — NUNCA subir al repositorio ─────────
 .env
+.env.local
+.env.production
+.env.staging
+.env.test
+
+# ── Logs ─────────────────────────────────────────────────────
+logs/
 *.log
+npm-debug.log*
+
+# ── Cobertura de tests ────────────────────────────────────────
+coverage/
+
+# ── IDE ───────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# ── Sistema operativo ─────────────────────────────────────────
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# ── Archivos temporales ───────────────────────────────────────
+*.tmp
+*.temp
+uploads/

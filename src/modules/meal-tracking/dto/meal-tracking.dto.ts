@@ -5,12 +5,12 @@ import { z } from 'zod';
  */
 export const TrackMealDto = z.object({
   id_menu_diario: z
-    .number({ error: 'El ID del menú diario es requerido' })
+    .number({ message: 'El ID del menú diario es requerido' })
     .int()
     .positive('El ID debe ser un número positivo'),
 
   realizado: z
-    .boolean({ error: 'El campo realizado es requerido' }),
+    .boolean({ message: 'El campo realizado es requerido' }),
 
   hora_registro: z
     .string()

@@ -9,18 +9,18 @@ import { z } from 'zod';
 export const CreateEvaluationDto = z.object({
 
   id_perfil: z
-    .number({ error: 'El ID del perfil del paciente es requerido' })
+    .number({ message: 'El ID del perfil del paciente es requerido' })
     .int()
     .positive('El ID del perfil debe ser un número positivo'),
 
   peso_kg: z
-    .number({ error: 'El peso es requerido' })
+    .number({ message: 'El peso es requerido' })
     .min(20,  'El peso mínimo es 20 kg')
     .max(500, 'El peso máximo es 500 kg')
     .multipleOf(0.01, 'El peso puede tener máximo 2 decimales'),
 
   altura_cm: z
-    .number({ error: 'La altura es requerida' })
+    .number({ message: 'La altura es requerida' })
     .min(100, 'La altura mínima es 100 cm')
     .max(250, 'La altura máxima es 250 cm')
     .multipleOf(0.1, 'La altura puede tener máximo 1 decimal'),
@@ -61,7 +61,7 @@ export type CreateEvaluationDto = z.infer<typeof CreateEvaluationDto>;
  */
 export const CompareEvaluationsDto = z.object({
   evaluation_ids: z
-    .string({ error: 'Los IDs de evaluaciones son requeridos' })
+    .string({ message: 'Los IDs de evaluaciones son requeridos' })
     .refine(val => {
       const ids = val.split(',');
       return ids.length === 2 && ids.every(id => !isNaN(parseInt(id)));

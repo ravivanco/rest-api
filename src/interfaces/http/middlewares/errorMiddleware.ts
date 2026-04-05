@@ -16,9 +16,9 @@ export const errorMiddleware = (
       error: {
         code: 'VALIDATION_ERROR',
         message: 'Datos de entrada inválidos',
-        details: err.errors.map(e => ({
-          field: e.path.join('.'),
-          message: e.message,
+        details: err.issues.map(issue => ({
+          field: issue.path.join('.'),
+          message: issue.message,
         })),
       },
     });

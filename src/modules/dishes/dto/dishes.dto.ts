@@ -5,12 +5,12 @@ import { z } from 'zod';
  */
 const IngredienteDto = z.object({
   id_alimento: z
-    .number({ error: 'El ID del alimento es requerido' })
+    .number({ message: 'El ID del alimento es requerido' })
     .int()
     .positive(),
 
   cantidad_g: z
-    .number({ error: 'La cantidad en gramos es requerida' })
+    .number({ message: 'La cantidad en gramos es requerida' })
     .int()
     .min(1,    'La cantidad mínima es 1 gramo')
     .max(5000, 'La cantidad máxima es 5000 gramos'),
@@ -21,7 +21,7 @@ const IngredienteDto = z.object({
  */
 export const CreateDishDto = z.object({
   nombre: z
-    .string({ error: 'El nombre es requerido' })
+    .string({ message: 'El nombre es requerido' })
     .min(2,   'El nombre debe tener al menos 2 caracteres')
     .max(150, 'El nombre no puede superar 150 caracteres')
     .trim(),
@@ -68,12 +68,12 @@ export type UpdateDishDto = z.infer<typeof UpdateDishDto>;
  */
 export const UpsertIngredientDto = z.object({
   id_alimento: z
-    .number({ error: 'El ID del alimento es requerido' })
+    .number({ message: 'El ID del alimento es requerido' })
     .int()
     .positive(),
 
   cantidad_g: z
-    .number({ error: 'La cantidad es requerida' })
+    .number({ message: 'La cantidad es requerida' })
     .int()
     .min(1, 'La cantidad mínima es 1 gramo')
     .max(5000),

@@ -8,7 +8,7 @@ import { z } from 'zod';
 export const CreateAdditionalIntakeDto = z.object({
 
   descripcion_alimento: z
-    .string({ error: 'La descripción del alimento es requerida' })
+    .string({ message: 'La descripción del alimento es requerida' })
     .min(3,   'La descripción debe tener al menos 3 caracteres')
     .max(200, 'La descripción no puede superar 200 caracteres')
     .trim(),
@@ -44,7 +44,7 @@ export type CreateAdditionalIntakeDto = z.infer<typeof CreateAdditionalIntakeDto
  */
 export const ConfirmIntakeDto = z.object({
   calorias_estimadas: z
-    .number({ error: 'Las calorías estimadas son requeridas para confirmar' })
+    .number({ message: 'Las calorías estimadas son requeridas para confirmar' })
     .int()
     .min(1,    'Las calorías mínimas son 1 kcal')
     .max(5000, 'Las calorías máximas son 5000 kcal'),

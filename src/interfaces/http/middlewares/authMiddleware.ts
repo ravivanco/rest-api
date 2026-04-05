@@ -8,9 +8,25 @@ interface JwtPayload {
   sub: number;
   email: string;
   role: Role;
+  id_perfil: number | null;
+  estado: string;
   iat: number;
   exp: number;
 }
+
+const isJwtPayload = (payload: unknown): payload is JwtPayload => {
+  if (!payload || typeof payload !== 'object') return false;
+
+  const candidate = payload as Record<string, unknown>;
+
+  return (
+    typeof candidate.sub === 'number' &&
+    typeof candidate.email === 'string' &&
+    typeof candidate.role === 'string' &&
+    (typeof candidate.id_perfil === 'number' || candidate.id_perfil === null) &&
+    typeof candidate.estado === 'string'
+  );
+};
 
 export const authMiddleware = (
   req: Request,
@@ -25,12 +41,20 @@ export const authMiddleware = (
     }
 
     const token = authHeader.split(' ')[1];
-    const payload = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
+    const decoded = jwt.verify(token, env.JWT_SECRET);
+
+    if (!isJwtPayload(decoded)) {
+      throw new UnauthorizedError('Token inválido');
+    }
+
+    const payload = decoded;
 
     req.user = {
       id: payload.sub,
       email: payload.email,
       role: payload.role,
+      id_perfil: payload.id_perfil,
+      estado: payload.estado,
     };
 
     next();

@@ -8,12 +8,12 @@ const ESTADOS_VALIDOS = ['programada', 'atendida', 'cancelada', 'reprogramada'] 
 export const CreateAppointmentDto = z.object({
 
   id_perfil: z
-    .number({ error: 'El ID del perfil del paciente es requerido' })
+    .number({ required_error: 'El ID del perfil del paciente es requerido' })
     .int()
     .positive(),
 
   fecha_hora: z
-    .string({ error: 'La fecha y hora son requeridas' })
+    .string({ required_error: 'La fecha y hora son requeridas' })
     .refine(val => {
       const date = new Date(val);
       return !isNaN(date.getTime());
@@ -56,8 +56,8 @@ export type UpdateAppointmentDto = z.infer<typeof UpdateAppointmentDto>;
  * DTO para cambiar el estado de una cita.
  */
 export const ChangeStatusDto = z.object({
-  estado: z.enum(ESTADOS_VALIDOS, {
-    error: `El estado debe ser uno de: ${ESTADOS_VALIDOS.join(', ')}`,
+  estado: z.enum([...ESTADOS_VALIDOS] as [string, ...string[]], {
+    message: `El estado debe ser uno de: ${ESTADOS_VALIDOS.join(', ')}`,
   }),
 
   notas: z
@@ -74,7 +74,7 @@ export type ChangeStatusDto = z.infer<typeof ChangeStatusDto>;
  */
 export const LinkEvaluationDto = z.object({
   id_evaluacion: z
-    .number({ error: 'El ID de la evaluación es requerido' })
+    .number({ required_error: 'El ID de la evaluación es requerido' })
     .int()
     .positive(),
 });

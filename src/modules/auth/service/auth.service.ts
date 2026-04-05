@@ -18,6 +18,16 @@ import { RegisterDto, LoginDto } from '../dto/auth.dto';
 const hashToken = (token: string): string =>
   crypto.createHash('sha256').update(token).digest('hex');
 
+const isRefreshPayload = (
+  payload: unknown,
+): payload is { sub: number; type: string } => {
+  if (!payload || typeof payload !== 'object') return false;
+
+  const candidate = payload as Record<string, unknown>;
+
+  return typeof candidate.sub === 'number' && typeof candidate.type === 'string';
+};
+
 /**
  * Calcula la fecha de expiración del refresh token (7 días).
  */
@@ -186,7 +196,13 @@ export const authService = {
     // Verificar la firma del refresh token
     let payload: { sub: number; type: string };
     try {
-      payload = jwt.verify(token, env.JWT_REFRESH_SECRET) as { sub: number; type: string };
+      const decoded = jwt.verify(token, env.JWT_REFRESH_SECRET);
+
+      if (!isRefreshPayload(decoded)) {
+        throw new UnauthorizedError('Token inválido');
+      }
+
+      payload = decoded;
     } catch {
       throw new UnauthorizedError('Refresh token inválido o expirado');
     }

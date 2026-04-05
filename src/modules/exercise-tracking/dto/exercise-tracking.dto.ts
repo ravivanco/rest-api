@@ -5,12 +5,12 @@ import { z } from 'zod';
  */
 export const TrackExerciseDto = z.object({
   id_ejercicio_diario: z
-    .number({ error: 'El ID del ejercicio diario es requerido' })
+    .number({ message: 'El ID del ejercicio diario es requerido' })
     .int()
     .positive(),
 
   completado: z
-    .boolean({ error: 'El campo completado es requerido' }),
+    .boolean({ message: 'El campo completado es requerido' }),
 
   hora_registro: z
     .string()
