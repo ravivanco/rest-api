@@ -51,6 +51,28 @@ calorieControlRouter.get(
   calorieControlController.getToday,
 );
 
+/**
+ * @swagger
+ * /calorie-control/me/history:
+ *   get:
+ *     summary: Historial de balance calórico del paciente
+ *     description: Serie temporal del balance calórico diario para gráficos.
+ *     tags: [Calorie Control]
+ *     parameters:
+ *       - in: query
+ *         name: desde
+ *         schema: { type: string, format: date }
+ *       - in: query
+ *         name: hasta
+ *         schema: { type: string, format: date }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *     responses:
+ *       200:
+ *         description: Historial paginado de balance calórico
+ */
+
 calorieControlRouter.get(
   '/me/history',
   authenticate,
@@ -58,12 +80,41 @@ calorieControlRouter.get(
   calorieControlController.getMyHistory,
 );
 
+/**
+ * @swagger
+ * /calorie-control/me/weekly:
+ *   get:
+ *     summary: Balance calórico de los últimos 7 días
+ *     tags: [Calorie Control]
+ *     responses:
+ *       200:
+ *         description: Serie de 7 días para gráfico semanal
+ */
+
+
 calorieControlRouter.get(
   '/me/weekly',
   authenticate,
   requireRole('paciente'),
   calorieControlController.getWeeklyProgress,
 );
+
+/**
+ * @swagger
+ * /calorie-control/patient/{id}/today:
+ *   get:
+ *     summary: Balance calórico de hoy de un paciente (nutricionista)
+ *     tags: [Calorie Control]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *         description: id_perfil del paciente
+ *     responses:
+ *       200:
+ *         description: Balance calórico actual del paciente
+ */
 
 calorieControlRouter.get(
   '/patient/:id/today',

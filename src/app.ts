@@ -49,24 +49,55 @@ export function createApp(): Application {
   }
 
   // ── Swagger UI ───────────────────────────────────────────────
-  // Solo disponible en desarrollo — no en producción
   if (env.NODE_ENV === 'development') {
     app.use(
       '/api-docs',
       swaggerUi.serve,
       swaggerUi.setup(swaggerSpec, {
-        customSiteTitle:  'DK Fitt API — Documentación',
+        customSiteTitle: 'DK Fitt API — Documentación',
+
+        // CSS personalizado para mejorar la apariencia
+        customCss: `
+          .swagger-ui .topbar { background-color: #1a1a2e; padding: 8px 0; }
+          .swagger-ui .topbar-wrapper img { display: none; }
+          .swagger-ui .topbar-wrapper::before {
+            content: '🥗 DK Fitt API';
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            padding-left: 20px;
+          }
+          .swagger-ui .info .title { color: #1a1a2e; }
+          .swagger-ui .scheme-container { background: #f8f9fa; padding: 15px; border-radius: 8px; }
+        `,
+
         swaggerOptions: {
-          persistAuthorization: true, // recuerda el token al recargar
+          // Recuerda el token al recargar la página
+          persistAuthorization: true,
+          // Muestra la duración de cada request
+          displayRequestDuration: true,
+          // Expande las operaciones por defecto (list = muestra tags colapsados)
+          docExpansion: 'list',
+          // Permite filtrar endpoints por texto
+          filter: true,
+          // Ordena los tags alfabéticamente
+          tagsSorter: 'alpha',
+          // Muestra el botón "Try it out" automáticamente
+          tryItOutEnabled: false,
+          // Tiempo máximo de espera para las peticiones
+          requestTimeout: 30000,
         },
       }),
     );
 
-    // Endpoint para obtener la spec en JSON (útil para clientes Swagger)
+    // Endpoint para obtener la spec en JSON (para generadores de clientes)
     app.get('/api-docs.json', (_req, res) => {
       res.setHeader('Content-Type', 'application/json');
       res.send(swaggerSpec);
     });
+
+    // eslint-disable-next-line no-console
+    console.log(`📚 Swagger UI disponible en http://localhost:${env.PORT}/api-docs`);
   }
 
   // ── Ruta informativa raíz ────────────────────────────────────

@@ -21,7 +21,7 @@ async function bootstrap(): Promise<void> {
   const app = createApp();
 
   // Paso 3: Levantar el servidor
-  const server = app.listen(env.PORT, () => {
+  const server = app.listen(env.PORT, '127.0.0.1', () => {
     console.log('');
     console.log('╔══════════════════════════════════════════╗');
     console.log('║         DK FITT API — Iniciada           ║');
@@ -58,4 +58,8 @@ async function bootstrap(): Promise<void> {
   });
 }
 
-bootstrap();
+// Manejar promesa rechazada en bootstrap
+bootstrap().catch((error) => {
+  console.error('❌ Error fatal en bootstrap:', error.message || error);
+  process.exit(1);
+});
