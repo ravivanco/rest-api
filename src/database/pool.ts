@@ -15,6 +15,9 @@ export const pool = new Pool({
   max:                    20,     // máximo de conexiones simultáneas
   idleTimeoutMillis:      30000,  // cerrar conexión inactiva después de 30s
   connectionTimeoutMillis: 2000,  // esperar máximo 2s para obtener conexión
+  ssl: env.NODE_ENV === 'production'
+    ? { rejectUnauthorized: true }
+    : false,
 });
 
 // Loguear errores del pool que ocurran en background
