@@ -49,7 +49,7 @@ export function createApp(): Application {
   }
 
   // ── Swagger UI ───────────────────────────────────────────────
-  if (env.NODE_ENV === 'development') {
+  if (env.NODE_ENV !== 'test') {
     app.use(
       '/api-docs',
       swaggerUi.serve,
