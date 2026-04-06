@@ -21,7 +21,7 @@ async function bootstrap(): Promise<void> {
   const app = createApp();
 
   // Paso 3: Levantar el servidor
-  const server = app.listen(env.PORT, '127.0.0.1', () => {
+  const server = app.listen(env.PORT, '0.0.0.0', () => {
     console.log('');
     console.log('╔══════════════════════════════════════════╗');
     console.log('║         DK FITT API — Iniciada           ║');
