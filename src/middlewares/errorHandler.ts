@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { AppError } from '@errors/AppError';
+import { env } from '@config/env';
 
 /**
  * Middleware global de manejo de errores.
@@ -43,17 +44,22 @@ export const errorHandler = (
     return;
   }
 
-  // Error inesperado — nunca exponer detalles internos en producción
-  console.error('Error no controlado:', err);
+  // ── Error inesperado — NUNCA exponer detalles en producción ──
+  console.error('❌ Error no controlado:', {
+    name:    err.name,
+    message: err.message,
+    // Stack solo en desarrollo — NUNCA en producción
+    stack:   env.NODE_ENV !== 'production' ? err.stack : undefined,
+  });
 
   res.status(500).json({
     success: false,
     error: {
       code:    'INTERNAL_SERVER_ERROR',
       message: 'Ocurrió un error interno. Por favor intenta más tarde.',
-      // Solo mostrar el detalle en desarrollo
-      ...(process.env.NODE_ENV === 'development' && {
-        debug: err.message,
+      // Debug solo en desarrollo
+      ...(env.NODE_ENV === 'development' && {
+        debug: { name: err.name, message: err.message },
       }),
     },
   });

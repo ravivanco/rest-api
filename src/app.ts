@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import swaggerUi from 'swagger-ui-express';
+import compression from 'compression';
 
 import { env }          from '@config/env';
 import { swaggerSpec }  from '@config/swagger';
@@ -18,17 +19,55 @@ import { errorHandler } from '@middlewares/errorHandler';
 export function createApp(): Application {
   const app = express();
 
-  // ── Seguridad ────────────────────────────────────────────────
-  // helmet agrega cabeceras HTTP que protegen contra ataques comunes
-  app.use(helmet());
+// ── Seguridad: cabeceras HTTP ─────────────────────────────────
+  app.use(helmet({
+    // Para una API pura (sin HTML), podemos relajar algunas políticas
+    contentSecurityPolicy: false,
+    // El resto de protecciones de Helmet se mantienen activas
+  }));
 
-  // CORS: quién puede hacer peticiones a esta API
+  // No revelar que usamos Express
+  app.disable('x-powered-by');
+
+  // ── Compresión de respuestas ──────────────────────────────────
+  // Comprime todas las respuestas JSON mayores a 1KB
+  app.use(compression({
+    level:     6,     // nivel de compresión (0-9, default 6)
+    threshold: 1024,  // solo comprimir si la respuesta > 1KB
+  }));
+
+// ── CORS ─────────────────────────────────────────────────────
+  // Orígenes permitidos en producción
+  // Agregar aquí las URLs reales del frontend cuando estén disponibles
+  const allowedOrigins: string[] = [
+    // App web de la nutricionista
+    // Agregar aquí cuando tengas el frontend listo
+    // 'https://dkfitt.decokasas.com',
+    // 'https://app.dkfitt.decokasas.com',
+    // Para pruebas desde Postman, apps móviles nativas y Render healthcheck
+    // (origin undefined = petición sin origen — siempre se permite)
+  ];
+
   app.use(cors({
-    origin: env.NODE_ENV === 'production'
-      ? ['https://dkfitt.decokasas.com']  // solo el dominio de producción
-      : '*',                               // cualquier origen en desarrollo
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    origin: (origin, callback) => {
+      // Peticiones sin origen: Postman, apps móviles nativas, curl
+      if (!origin) return callback(null, true);
+
+      // Desarrollo: permitir todo
+      if (env.NODE_ENV !== 'production') return callback(null, true);
+
+      // Producción: solo orígenes de la lista
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // Origen no permitido
+      callback(new Error(`CORS: Origen no permitido — ${origin}`));
+    },
+    methods:        ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    credentials:    true,
+    maxAge:         86400, // cache de preflight 24 horas
   }));
 
   // No revelar que usamos Express
@@ -42,14 +81,21 @@ export function createApp(): Application {
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
 
-  // ── Logger ───────────────────────────────────────────────────
-  // Muestra en consola cada petición que llega
-  if (env.NODE_ENV !== 'test') {
+  // ── Logger HTTP ──────────────────────────────────────────────
+  if (env.NODE_ENV === 'test') {
+    // En tests no loguear nada — los tests son más limpios
+  } else if (env.NODE_ENV === 'production') {
+    // Producción: formato combined (IP + timestamp + método + status)
+    // Ejemplo: 93.184.216.34 - - [05/Apr/2026:20:00:00] "GET /api/health HTTP/1.1" 200 120
+    app.use(morgan('combined'));
+  } else {
+    // Desarrollo: formato dev (colorido y conciso)
+    // Ejemplo: GET /api/health 200 15ms
     app.use(morgan('dev'));
   }
 
   // ── Swagger UI ───────────────────────────────────────────────
-  if (env.NODE_ENV !== 'test') {
+  if (env.NODE_ENV === 'development') {
     app.use(
       '/api-docs',
       swaggerUi.serve,

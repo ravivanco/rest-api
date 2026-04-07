@@ -13,6 +13,9 @@ export const pool = new Pool({
   max: 20, // máximo de conexiones en el pool
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
+  ssl: env.NODE_ENV === 'production'
+    ? { rejectUnauthorized: true }
+    : false,
 });
 
 // Manejo de errores del pool
