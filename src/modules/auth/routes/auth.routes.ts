@@ -43,42 +43,30 @@ export const authRouter = Router();
  *             properties:
  *               correo_institucional:
  *                 type: string
- *                 example: juan.perez@decokasas.com
+ *                 format: email
  *               contrasena:
  *                 type: string
- *                 example: "MiClave123!"
+ *                 format: password
  *                 description: Mínimo 8 chars, mayúscula, minúscula, número y carácter especial
  *               nombres:
  *                 type: string
- *                 example: Juan
+ *                 example: Name
  *               apellidos:
  *                 type: string
- *                 example: Pérez
+ *                 example: LastName
  *               edad:
  *                 type: integer
- *                 example: 32
+ *                 example: number
  *               sexo:
  *                 type: string
  *                 enum: [M, F, O]
- *                 example: M
+ *                 example: string
  *               fecha_nacimiento:
  *                 type: string
- *                 example: "1992-05-15"
+ *                 example: "DD/MM/YYYY" o "YYYY-MM-DD"
  *     responses:
  *       201:
  *         description: Paciente registrado exitosamente
- *         content:
- *           application/json:
- *             example:
- *               success: true
- *               data:
- *                 id_usuario: 14
- *                 correo_institucional: juan.perez@decokasas.com
- *                 nombres: Juan
- *                 apellidos: Pérez
- *                 rol: paciente
- *                 formulario_completado: false
- *               message: Registro exitoso. Ahora puedes iniciar sesión.
  *       400:
  *         $ref: '#/components/responses/ValidationError'
  *       409:
