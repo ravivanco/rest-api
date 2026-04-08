@@ -1,6 +1,16 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import { env }      from './env';
 
+const swaggerServer = env.NODE_ENV === 'production'
+  ? {
+      url:         'https://dk-fitt-api.onrender.com/api',
+      description: '🚀 Servidor de producción (Render)',
+    }
+  : {
+      url:         `http://localhost:${env.PORT}/api`,
+      description: '🔧 Servidor de desarrollo local',
+    };
+
 const options: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.0',
@@ -47,10 +57,7 @@ Conecta la **app móvil** del paciente con la **plataforma web** de la nutricion
 
     // ── Servidores ────────────────────────────────────────────────────────
     servers: [
-      {
-        url:         `http://localhost:${env.PORT}/api`,
-        description: '🔧 Servidor de desarrollo local',
-      },
+      swaggerServer,
     ],
 
     // ── Tags por módulo ────────────────────────────────────────────────────

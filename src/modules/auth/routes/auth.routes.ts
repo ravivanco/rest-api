@@ -121,35 +121,100 @@ authRouter.post(
  *             properties:
  *               correo_institucional:
  *                 type: string
- *                 example: juan.perez@decokasas.com
+ *                 format: email
  *               contrasena:
  *                 type: string
- *                 example: "MiClave123!"
+ *                 format: password
  *     responses:
  *       200:
  *         description: Login exitoso
  *         content:
  *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     access_token:
+ *                       type: string
+ *                     refresh_token:
+ *                       type: string
+ *                     expires_in:
+ *                       type: integer
+ *                     token_type:
+ *                       type: string
+ *                     user:
+ *                       type: object
+ *                       properties:
+ *                         id_usuario:
+ *                           type: integer
+ *                         nombres:
+ *                           type: string
+ *                         apellidos:
+ *                           type: string
+ *                         correo_institucional:
+ *                           type: string
+ *                           format: email
+ *                         rol:
+ *                           type: string
+ *                         formulario_completado:
+ *                           type: boolean
+ *                         modulo_habilitado:
+ *                           type: boolean
  *             example:
  *               success: true
  *               data:
- *                 access_token: eyJhbGciOiJIUzI1NiJ9...
- *                 refresh_token: eyJhbGciOiJIUzI1NiJ9...
+ *                 access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *                 refresh_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
  *                 expires_in: 900
  *                 token_type: Bearer
  *                 user:
- *                   id_usuario: 14
- *                   nombres: Juan
- *                   apellidos: Pérez
+ *                   id_usuario: 2
+ *                   nombres: Richard
+ *                   apellidos: Vivanco
+ *                   correo_institucional: rvivanco199@gmail.com
  *                   rol: paciente
  *                   formulario_completado: false
  *                   modulo_habilitado: false
+ *       400:
+ *         description: JSON inválido o datos de entrada inválidos
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: false
+ *               error:
+ *                 code: VALIDATION_ERROR
+ *                 message: Datos de entrada inválidos
  *       401:
  *         description: Credenciales inválidas
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: false
+ *               error:
+ *                 code: INVALID_CREDENTIALS
+ *                 message: Credenciales inválidas
  *       403:
  *         description: Cuenta suspendida o inactiva
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: false
+ *               error:
+ *                 code: ACCOUNT_INACTIVE
+ *                 message: Cuenta suspendida o inactiva
  *       429:
  *         description: Demasiados intentos de login
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: false
+ *               error:
+ *                 code: RATE_LIMIT_EXCEEDED
+ *                 message: Demasiados intentos de login. Intenta más tarde.
  */
 authRouter.post(
   '/login',
