@@ -48,10 +48,6 @@ Conecta la **app móvil** del paciente con la **plataforma web** de la nutricion
     // ── Servidores ────────────────────────────────────────────────────────
     servers: [
       {
-        url: `http://localhost:${env.PORT}/api`,
-        description: '🔧 Servidor de desarrollo local',
-      },
-      {
         url: 'https://dk-fitt-api.onrender.com/api',
         description: '🚀 Servidor de producción (Render)',
       },
