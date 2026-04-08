@@ -44,8 +44,15 @@ export const RegisterDto = z.object({
 
   fecha_nacimiento: z
     .string({ message: 'La fecha de nacimiento es requerida' })
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido. Usa YYYY-MM-DD'),
-});
+    .regex(/^\d{2}\/\d{2}\/\d{4}$|^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha: DD/MM/YYYY o YYYY-MM-DD')
+    .transform(val => {
+      // Convertir DD/MM/YYYY a YYYY-MM-DD
+      if (val.includes('/')) {
+        const [day, month, year] = val.split('/');
+        return `${year}-${month}-${day}`;
+      }
+      return val;
+    }),
 
 // Tipo TypeScript inferido del schema (no tienes que escribirlo manualmente)
 export type RegisterDto = z.infer<typeof RegisterDto>;
