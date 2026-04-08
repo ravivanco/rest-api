@@ -43,42 +43,26 @@ export const authRouter = Router();
  *             properties:
  *               correo_institucional:
  *                 type: string
- *                 example: juan.perez@decokasas.com
+ *                 format: email
  *               contrasena:
  *                 type: string
- *                 example: "MiClave123!"
+ *                 format: password
  *                 description: Mínimo 8 chars, mayúscula, minúscula, número y carácter especial
  *               nombres:
  *                 type: string
- *                 example: Juan
  *               apellidos:
  *                 type: string
- *                 example: Pérez
  *               edad:
  *                 type: integer
- *                 example: 32
  *               sexo:
  *                 type: string
  *                 enum: [M, F, O]
- *                 example: M
  *               fecha_nacimiento:
  *                 type: string
- *                 example: "1992-05-15"
+ *                 format: date
  *     responses:
  *       201:
  *         description: Paciente registrado exitosamente
- *         content:
- *           application/json:
- *             example:
- *               success: true
- *               data:
- *                 id_usuario: 14
- *                 correo_institucional: juan.perez@decokasas.com
- *                 nombres: Juan
- *                 apellidos: Pérez
- *                 rol: paciente
- *                 formulario_completado: false
- *               message: Registro exitoso. Ahora puedes iniciar sesión.
  *       400:
  *         $ref: '#/components/responses/ValidationError'
  *       409:
@@ -164,57 +148,14 @@ authRouter.post(
  *                           type: boolean
  *                         modulo_habilitado:
  *                           type: boolean
- *             example:
- *               success: true
- *               data:
- *                 access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
- *                 refresh_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
- *                 expires_in: 900
- *                 token_type: Bearer
- *                 user:
- *                   id_usuario: 2
- *                   nombres: Richard
- *                   apellidos: Vivanco
- *                   correo_institucional: rvivanco199@gmail.com
- *                   rol: paciente
- *                   formulario_completado: false
- *                   modulo_habilitado: false
  *       400:
  *         description: JSON inválido o datos de entrada inválidos
- *         content:
- *           application/json:
- *             example:
- *               success: false
- *               error:
- *                 code: VALIDATION_ERROR
- *                 message: Datos de entrada inválidos
  *       401:
  *         description: Credenciales inválidas
- *         content:
- *           application/json:
- *             example:
- *               success: false
- *               error:
- *                 code: INVALID_CREDENTIALS
- *                 message: Credenciales inválidas
  *       403:
  *         description: Cuenta suspendida o inactiva
- *         content:
- *           application/json:
- *             example:
- *               success: false
- *               error:
- *                 code: ACCOUNT_INACTIVE
- *                 message: Cuenta suspendida o inactiva
  *       429:
  *         description: Demasiados intentos de login
- *         content:
- *           application/json:
- *             example:
- *               success: false
- *               error:
- *                 code: RATE_LIMIT_EXCEEDED
- *                 message: Demasiados intentos de login. Intenta más tarde.
  */
 authRouter.post(
   '/login',
@@ -246,7 +187,6 @@ authRouter.post(
  *             properties:
  *               refresh_token:
  *                 type: string
- *                 example: eyJhbGciOiJIUzI1NiJ9...
  *     responses:
  *       200:
  *         description: Nuevos tokens emitidos
@@ -305,16 +245,6 @@ authRouter.post(
  *     responses:
  *       200:
  *         description: Datos del usuario
- *         content:
- *           application/json:
- *             example:
- *               success: true
- *               data:
- *                 id: 14
- *                 email: juan.perez@decokasas.com
- *                 role: paciente
- *                 id_perfil: 8
- *                 estado: activo
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
  */
@@ -345,10 +275,10 @@ authRouter.get(
  *             properties:
  *               contrasena_actual:
  *                 type: string
- *                 example: "MiClave123!"
+ *                 format: password
  *               contrasena_nueva:
  *                 type: string
- *                 example: "NuevaClave456@"
+ *                 format: password
  *     responses:
  *       200:
  *         description: Contraseña actualizada

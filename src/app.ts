@@ -38,15 +38,17 @@ export function createApp(): Application {
 
 // ── CORS ─────────────────────────────────────────────────────
   // Orígenes permitidos en producción
-  // Agregar aquí las URLs reales del frontend cuando estén disponibles
-  const allowedOrigins: string[] = [
-    // App web de la nutricionista
-    // Agregar aquí cuando tengas el frontend listo
-    // 'https://dkfitt.decokasas.com',
-    // 'https://app.dkfitt.decokasas.com',
-    // Para pruebas desde Postman, apps móviles nativas y Render healthcheck
-    // (origin undefined = petición sin origen — siempre se permite)
-  ];
+  // Puedes extender esta lista con CORS_ALLOWED_ORIGINS="https://a.com,https://b.com"
+  const extraOrigins = (process.env.CORS_ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
+
+  const allowedOrigins = new Set<string>([
+    'https://dk-fitt-api.onrender.com',
+    `http://localhost:${env.PORT}`,
+    ...extraOrigins,
+  ]);
 
   app.use(cors({
     origin: (origin, callback) => {
@@ -57,12 +59,12 @@ export function createApp(): Application {
       if (env.NODE_ENV !== 'production') return callback(null, true);
 
       // Producción: solo orígenes de la lista
-      if (allowedOrigins.includes(origin)) {
+      if (allowedOrigins.has(origin)) {
         return callback(null, true);
       }
 
-      // Origen no permitido
-      callback(new Error(`CORS: Origen no permitido — ${origin}`));
+      // Origen no permitido: no agregar cabeceras CORS, pero sin convertirlo en error 500
+      callback(null, false);
     },
     methods:        ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
