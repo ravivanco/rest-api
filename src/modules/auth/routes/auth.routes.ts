@@ -43,30 +43,31 @@ export const authRouter = Router();
  *             properties:
  *               correo_institucional:
  *                 type: string
- *                 format: email
+ *                 example: juan.perez@decokasas.com
  *               contrasena:
  *                 type: string
- *                 format: password
+ *                 example: "MiClave123!"
  *                 description: Mínimo 8 chars, mayúscula, minúscula, número y carácter especial
  *               nombres:
  *                 type: string
- *                 example: Name
+ *                 example: Juan
  *               apellidos:
  *                 type: string
- *                 example: LastName
+ *                 example: Pérez
  *               edad:
  *                 type: integer
- *                 example: number
+ *                 example: 32
  *               sexo:
  *                 type: string
  *                 enum: [M, F, O]
- *                 example: string
+ *                 example: M
  *               fecha_nacimiento:
  *                 type: string
- *                 example: "DD/MM/YYYY" o "YYYY-MM-DD"
+ *                 example: "1992-05-15"
  *     responses:
  *       201:
  *         description: Paciente registrado exitosamente
+ *        
  *       400:
  *         $ref: '#/components/responses/ValidationError'
  *       409:
