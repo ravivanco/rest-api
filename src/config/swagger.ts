@@ -465,9 +465,9 @@ Conecta la **app móvil** del paciente con la **plataforma web** de la nutricion
   },
 
   // Dónde buscar los comentarios JSDoc de las rutas
-  apis: [
-    './src/modules/**/routes/*.ts',
-    './src/docs/*.ts',
+    apis: [
+    './dist/modules/**/routes/*.js',
+    './dist/docs/*.js',
   ],
 };
 
