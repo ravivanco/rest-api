@@ -37,34 +37,11 @@ export const authRouter = Router();
  *       required: true
  *       content:
  *         application/json:
- *           schema:
- *             type: object
- *             required: [correo_institucional, contrasena, nombres, apellidos, edad, sexo, fecha_nacimiento]
- *             properties:
- *               correo_institucional:
- *                 type: string
- *                 format: email
- *               contrasena:
- *                 type: string
- *                 format: password
- *                 description: Mínimo 8 chars, mayúscula, minúscula, número y carácter especial
- *               nombres:
- *                 type: string
- *               apellidos:
- *                 type: string
- *               edad:
- *                 type: integer
- *               sexo:
- *                 type: string
- *                 enum: [M, F, O]
- *               fecha_nacimiento:
- *                 type: string
- *                 format: date
  *     responses:
  *       201:
  *         description: Paciente registrado exitosamente
  *       400:
- *         $ref: '#/components/responses/ValidationError'
+ *         description: Datos inválidos
  *       409:
  *         description: El correo ya está registrado
  *       422:
@@ -99,55 +76,9 @@ authRouter.post(
  *       required: true
  *       content:
  *         application/json:
- *           schema:
- *             type: object
- *             required: [correo_institucional, contrasena]
- *             properties:
- *               correo_institucional:
- *                 type: string
- *                 format: email
- *               contrasena:
- *                 type: string
- *                 format: password
  *     responses:
  *       200:
  *         description: Login exitoso
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     access_token:
- *                       type: string
- *                     refresh_token:
- *                       type: string
- *                     expires_in:
- *                       type: integer
- *                     token_type:
- *                       type: string
- *                     user:
- *                       type: object
- *                       properties:
- *                         id_usuario:
- *                           type: integer
- *                         nombres:
- *                           type: string
- *                         apellidos:
- *                           type: string
- *                         correo_institucional:
- *                           type: string
- *                           format: email
- *                         rol:
- *                           type: string
- *                         formulario_completado:
- *                           type: boolean
- *                         modulo_habilitado:
- *                           type: boolean
  *       400:
  *         description: JSON inválido o datos de entrada inválidos
  *       401:
@@ -181,12 +112,6 @@ authRouter.post(
  *       required: true
  *       content:
  *         application/json:
- *           schema:
- *             type: object
- *             required: [refresh_token]
- *             properties:
- *               refresh_token:
- *                 type: string
  *     responses:
  *       200:
  *         description: Nuevos tokens emitidos
@@ -214,17 +139,11 @@ authRouter.post(
  *       required: true
  *       content:
  *         application/json:
- *           schema:
- *             type: object
- *             required: [refresh_token]
- *             properties:
- *               refresh_token:
- *                 type: string
  *     responses:
  *       204:
  *         description: Sesión cerrada correctamente
  *       401:
- *         $ref: '#/components/responses/Unauthorized'
+ *         description: Token requerido o inválido
  */
 authRouter.post(
   '/logout',
@@ -246,7 +165,7 @@ authRouter.post(
  *       200:
  *         description: Datos del usuario
  *       401:
- *         $ref: '#/components/responses/Unauthorized'
+ *         description: Token requerido o inválido
  */
 authRouter.get(
   '/me',
@@ -269,16 +188,6 @@ authRouter.get(
  *       required: true
  *       content:
  *         application/json:
- *           schema:
- *             type: object
- *             required: [contrasena_actual, contrasena_nueva]
- *             properties:
- *               contrasena_actual:
- *                 type: string
- *                 format: password
- *               contrasena_nueva:
- *                 type: string
- *                 format: password
  *     responses:
  *       200:
  *         description: Contraseña actualizada
