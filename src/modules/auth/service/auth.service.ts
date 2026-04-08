@@ -54,12 +54,12 @@ export const authService = {
   async register(data: RegisterDto) {
 
     // RN-01: Validar dominio institucional
-    const domain = data.correo_institucional.split('@')[1];
-    if (domain !== env.INSTITUTIONAL_DOMAIN) {
-      throw new BusinessRuleError(
-        `Solo se permiten correos del dominio @${env.INSTITUTIONAL_DOMAIN}`
-      );
-    }
+    // const domain = data.correo_institucional.split('@')[1];
+    // if (domain !== env.INSTITUTIONAL_DOMAIN) {
+    //   throw new BusinessRuleError(
+    //     `Solo se permiten correos del dominio @${env.INSTITUTIONAL_DOMAIN}`
+    //   );
+    // }
 
     // Verificar que el correo no esté registrado
     const exists = await authRepository.existsByEmail(data.correo_institucional);
