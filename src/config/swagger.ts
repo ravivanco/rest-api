@@ -465,10 +465,12 @@ Conecta la **app móvil** del paciente con la **plataforma web** de la nutricion
   },
 
   // Dónde buscar los comentarios JSDoc de las rutas
-    apis: [
-    './dist/modules/**/routes/*.js',
-    './dist/docs/*.js',
-  ],
+  apis: process.env.NODE_ENV === 'production'
+    ? [] // En producción: no buscar archivos (los comentarios se pierden al compilar)
+    : [
+        './src/modules/**/routes/*.ts',
+        './src/docs/*.ts',
+      ],
 };
 
 export const swaggerSpec = swaggerJsdoc(options);
