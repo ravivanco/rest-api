@@ -42,7 +42,7 @@ export const RegisterDto = z.object({
     message: "El sexo debe ser 'M', 'F' u 'O'",
   }),
 
-  fecha_nacimiento: z
+    fecha_nacimiento: z
     .string({ message: 'La fecha de nacimiento es requerida' })
     .regex(/^\d{2}\/\d{2}\/\d{4}$|^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha: DD/MM/YYYY o YYYY-MM-DD')
     .transform(val => {
@@ -53,8 +53,9 @@ export const RegisterDto = z.object({
       }
       return val;
     }),
+});  
 
-// Tipo TypeScript inferido del schema (no tienes que escribirlo manualmente)
+// Tipo TypeScript inferido del schema
 export type RegisterDto = z.infer<typeof RegisterDto>;
 
 
