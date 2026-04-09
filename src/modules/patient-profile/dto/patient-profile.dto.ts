@@ -1,6 +1,26 @@
 import { z } from 'zod';
 
 /**
+ * Valores permitidos para deportes.
+ * Sincronizados con el CHECK constraint en actividades_fisicas_intereses.deporte
+ * Corrección aplicada: BD v2.0
+ */
+const DEPORTES_VALIDOS = [
+  'gimnasio',
+  'running',
+  'caminata',
+  'ciclismo',
+  'futbol',
+  'basquet',
+  'natacion',
+  'entrenamiento_casa',
+  'otro',
+  'ninguno',
+] as const;
+
+export type DeporteValido = typeof DEPORTES_VALIDOS[number];
+
+/**
  * DTO para guardar o actualizar el formulario inicial del paciente.
  * La app móvil puede enviarlo completo o en partes.
  * Cuando todos los campos requeridos están presentes, se marca completado.
@@ -49,7 +69,13 @@ export const SaveProfileFormDto = z.object({
 
   // Nombres de deportes de interés
   deportes: z
-    .array(z.string().min(2).max(60))
+    .array(
+      z.enum(DEPORTES_VALIDOS, {
+        errorMap: () => ({
+          message: `Deporte inválido. Valores permitidos: ${DEPORTES_VALIDOS.join(', ')}`,
+        }),
+      })
+    )
     .optional()
     .default([]),
 });

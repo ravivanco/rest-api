@@ -36,6 +36,8 @@ export interface PatientSummaryRow {
   pct_cumplimiento_ejercicio:   number | null;
 }
 
+type NutritionistSchedule = Record<string, { inicio: string; fin: string }>;
+
 export const patientsRepository = {
 
   /**
@@ -130,6 +132,38 @@ export const patientsRepository = {
       [perfilId],
     );
     return result.rows[0] ?? null;
+  },
+
+  /**
+   * Actualiza el horario de atención de la nutricionista.
+   * Se usa desde la plataforma web para configurar disponibilidad.
+   */
+  async updateSchedule(
+    nutricionistaId: number,
+    horario: NutritionistSchedule,
+  ): Promise<void> {
+    await pool.query(
+      `UPDATE perfiles_nutricionista
+       SET horario_atencion = $1,
+           updated_at       = NOW()
+       WHERE id_usuario = $2`,
+      [JSON.stringify(horario), nutricionistaId],
+    );
+  },
+
+  /**
+   * Obtiene el horario de atención de la nutricionista.
+   */
+  async getSchedule(
+    nutricionistaId: number,
+  ): Promise<NutritionistSchedule | null> {
+    const result = await pool.query<{ horario_atencion: NutritionistSchedule | null }>(
+      `SELECT horario_atencion
+       FROM perfiles_nutricionista
+       WHERE id_usuario = $1`,
+      [nutricionistaId],
+    );
+    return result.rows[0]?.horario_atencion ?? null;
   },
 
 };

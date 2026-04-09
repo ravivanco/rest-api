@@ -14,8 +14,24 @@ import {
   ForbiddenError,
 } from '@errors/AppError';
 
-/** Días válidos para los planes (lunes a viernes principalmente) */
-const DIAS_VALIDOS = ['lunes','martes','miercoles','jueves','viernes','sabado','domingo'];
+/** 
+ * Días válidos para los planes nutricionales.
+ * Solo días laborales — coincide con el CHECK constraint en dias_plan.
+ * Corrección aplicada: eliminado sabado y domingo (BD v2.0)
+ */
+const DIAS_VALIDOS = [
+  'lunes',
+  'martes',
+  'miercoles',
+  'jueves',
+  'viernes',
+] as const;
+
+type DiaValido = typeof DIAS_VALIDOS[number];
+
+const esDiaValido = (dia: string): dia is DiaValido => {
+  return (DIAS_VALIDOS as readonly string[]).includes(dia);
+};
 
 export const nutritionPlansService = {
 
@@ -269,8 +285,10 @@ export const nutritionPlansService = {
     const semana = await nutritionPlansRepository.findWeekById(weekId);
     if (!semana) throw new NotFoundError('Semana del plan');
 
+    const diaNormalizado = diaSemana.toLowerCase();
+
     // Validar día de la semana
-    if (!DIAS_VALIDOS.includes(diaSemana.toLowerCase())) {
+    if (!esDiaValido(diaNormalizado)) {
       throw new BusinessRuleError(
         `Día inválido: '${diaSemana}'. Valores válidos: ${DIAS_VALIDOS.join(', ')}`
       );
@@ -279,7 +297,7 @@ export const nutritionPlansService = {
     // Obtener o crear el día del plan
     const dia = await nutritionPlansRepository.findOrCreateDay(
       weekId,
-      diaSemana.toLowerCase(),
+      diaNormalizado,
       fecha,
     );
 
@@ -308,7 +326,9 @@ export const nutritionPlansService = {
     const semana = await nutritionPlansRepository.findWeekById(weekId);
     if (!semana) throw new NotFoundError('Semana del plan');
 
-    if (!DIAS_VALIDOS.includes(diaSemana.toLowerCase())) {
+    const diaNormalizado = diaSemana.toLowerCase();
+
+    if (!esDiaValido(diaNormalizado)) {
       throw new BusinessRuleError(
         `Día inválido: '${diaSemana}'. Valores válidos: ${DIAS_VALIDOS.join(', ')}`
       );
@@ -316,7 +336,7 @@ export const nutritionPlansService = {
 
     const dia = await nutritionPlansRepository.findOrCreateDay(
       weekId,
-      diaSemana.toLowerCase(),
+      diaNormalizado,
       fecha,
     );
 

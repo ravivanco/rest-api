@@ -1,5 +1,6 @@
 import { appointmentsRepository }        from '../repository/appointments.repository';
 import { clinicalEvaluationsRepository } from '../../clinical-evaluations/repository/clinical-evaluations.repository';
+import { pool }                          from '@database/pool';
 import {
   CreateAppointmentDto,
   UpdateAppointmentDto,
@@ -11,6 +12,39 @@ import {
   BusinessRuleError,
   ForbiddenError,
 } from '@errors/AppError';
+
+/**
+ * Verifica si una fecha y hora cae dentro del horario de atención
+ * de la nutricionista.
+ *
+ * @param horario - horario_atencion de perfiles_nutricionista
+ * @param fechaHora - string ISO 8601 de la cita
+ * @returns true si está dentro del horario, false si no
+ */
+const estaEnHorario = (
+  horario: Record<string, { inicio: string; fin: string }> | null,
+  fechaHora: string,
+): boolean => {
+  // Si no hay horario configurado, permitir cualquier hora
+  if (!horario) return true;
+
+  const fecha = new Date(fechaHora);
+
+  // Obtener el día de la semana en español
+  const diasSemana = [
+    'domingo', 'lunes', 'martes', 'miercoles',
+    'jueves', 'viernes', 'sabado',
+  ];
+  const diaSemana = diasSemana[fecha.getDay()];
+
+  // Si el día no está en el horario, no hay atención ese día
+  const horarioDia = horario[diaSemana];
+  if (!horarioDia) return false;
+
+  // Comparar la hora de la cita con el rango de atención
+  const horaCita = fecha.toTimeString().slice(0, 5); // "HH:MM"
+  return horaCita >= horarioDia.inicio && horaCita <= horarioDia.fin;
+};
 
 /**
  * Transiciones de estado válidas.
@@ -32,7 +66,7 @@ export const appointmentsService = {
    */
   async createAppointment(nutricionistaId: number, data: CreateAppointmentDto) {
 
-    // Verificar conflicto de horario
+    // Verificar conflicto de horario con otras citas
     const hayConflicto = await appointmentsRepository.existsConflict(
       nutricionistaId,
       data.fecha_hora,
@@ -40,10 +74,25 @@ export const appointmentsService = {
 
     if (hayConflicto) {
       throw new BusinessRuleError(
-        'Ya existe una cita programada en ese horario o muy cercana (±30 minutos). ' +
-        'Por favor elige otro horario.'
+        'Ya existe una cita en ese horario o muy cercana (±30 minutos).'
       );
     }
+
+    // ── NUEVO: Verificar horario de atención ──────────────────
+    const horario = await pool.query<{ horario_atencion: Record<string, { inicio: string; fin: string }> }>(
+      `SELECT horario_atencion FROM perfiles_nutricionista WHERE id_usuario = $1`,
+      [nutricionistaId],
+    );
+
+    const horarioAtencion = horario.rows[0]?.horario_atencion ?? null;
+
+    if (!estaEnHorario(horarioAtencion, data.fecha_hora)) {
+      throw new BusinessRuleError(
+        'La hora de la cita está fuera del horario de atención configurado. ' +
+        'Verifica los días y horarios disponibles.'
+      );
+    }
+    // ─────────────────────────────────────────────────────────
 
     const cita = await appointmentsRepository.create({
       id_perfil:        data.id_perfil,
