@@ -36,40 +36,58 @@ export function createApp(): Application {
     threshold: 1024,  // solo comprimir si la respuesta > 1KB
   }));
 
-// ── CORS ─────────────────────────────────────────────────────
-  // Orígenes permitidos en producción
-  // Puedes extender esta lista con CORS_ALLOWED_ORIGINS="https://a.com,https://b.com"
-  const extraOrigins = (process.env.CORS_ALLOWED_ORIGINS ?? '')
-    .split(',')
-    .map(origin => origin.trim())
-    .filter(Boolean);
+  // ── CORS ─────────────────────────────────────────────────────
+  // Orígenes permitidos organizados por entorno
+  const allowedOrigins: string[] = [
 
-  const allowedOrigins = new Set<string>([
-    'https://dk-fitt-api.onrender.com',
-    `http://localhost:${env.PORT}`,
-    ...extraOrigins,
-  ]);
+    // ── Producción ──────────────────────────────────────────
+    'https://dkfitt.decokasas.com',
+    'https://app.dkfitt.decokasas.com',
+
+    // ── Desarrollo local — plataforma web ───────────────────
+    // Agrega aquí todos los puertos que usa tu app web local
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:4200',  // Angular
+    'http://localhost:5173',  // Vite / React
+    'http://localhost:5174',  // Vite alternativo
+    'http://localhost:8080',  // Vue CLI / webpack
+    'http://localhost:8081',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:8080',
+
+  ];
 
   app.use(cors({
     origin: (origin, callback) => {
-      // Peticiones sin origen: Postman, apps móviles nativas, curl
+      // Sin origin: Postman, curl, apps móviles nativas → siempre permitir
       if (!origin) return callback(null, true);
 
-      // Desarrollo: permitir todo
-      if (env.NODE_ENV !== 'production') return callback(null, true);
-
-      // Producción: solo orígenes de la lista
-      if (allowedOrigins.has(origin)) {
+      // Origin en la lista → permitir
+      if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      // Origen no permitido: no agregar cabeceras CORS, pero sin convertirlo en error 500
-      callback(null, false);
+      // En desarrollo: permitir cualquier localhost
+      // Esto cubre cualquier puerto local sin tener que listarlos todos
+      if (
+        env.NODE_ENV === 'development' ||
+        origin.startsWith('http://localhost:') ||
+        origin.startsWith('http://127.0.0.1:')
+      ) {
+        return callback(null, true);
+      }
+
+      // Origin no permitido
+      console.warn(`⚠️  CORS bloqueado: ${origin}`);
+      callback(new Error(`CORS: Origen no permitido — ${origin}`));
     },
+
     methods:        ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['X-Total-Count'],
     credentials:    true,
-    maxAge:         86400, // cache de preflight 24 horas
+    maxAge:         86400,
   }));
 
   // No revelar que usamos Express
