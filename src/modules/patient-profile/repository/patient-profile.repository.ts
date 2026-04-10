@@ -143,10 +143,22 @@ export const patientProfileRepository = {
     const client = await pool.connect();
 
     try {
+      // Trazas de depuracion: permiten ubicar exactamente en que paso falla la transaccion.
+      // En Render estos logs ayudan a ver si el error ocurre en UPDATE, DELETE, INSERT o COMMIT.
+      // Se mantienen simples para no exponer datos sensibles completos.
+      console.log('[patient-profile][saveFullForm] start', {
+        perfilId,
+        condiciones: data.condiciones.length,
+        alimentos_preferidos: data.alimentos_preferidos.length,
+        alimentos_restringidos: data.alimentos_restringidos.length,
+        deportes: data.deportes.length,
+      });
+
       await client.query('BEGIN');
+      console.log('[patient-profile][saveFullForm] transaction begin', { perfilId });
 
       // 1. Actualizar datos principales del perfil
-      await client.query(
+      const updateResult = await client.query(
         `UPDATE perfiles_paciente
          SET    nivel_actividad_fisica      = $1,
                 objetivo                   = $2,
@@ -163,64 +175,122 @@ export const patientProfileRepository = {
           perfilId,
         ],
       );
+      console.log('[patient-profile][saveFullForm] perfil updated', {
+        perfilId,
+        rowCount: updateResult.rowCount,
+      });
 
       // 2. Reemplazar condiciones médicas (borrar las anteriores e insertar las nuevas)
-      await client.query(
+      const deleteCondiciones = await client.query(
         `DELETE FROM paciente_condiciones WHERE id_perfil = $1`,
         [perfilId],
       );
+      console.log('[patient-profile][saveFullForm] condiciones deleted', {
+        perfilId,
+        rowCount: deleteCondiciones.rowCount,
+      });
 
       for (const idCondicion of data.condiciones) {
-        await client.query(
+        const condicionResult = await client.query(
           `INSERT INTO paciente_condiciones (id_perfil, id_condicion)
            VALUES ($1, $2)
            ON CONFLICT DO NOTHING`,
           [perfilId, idCondicion],
         );
+        console.log('[patient-profile][saveFullForm] condicion inserted', {
+          perfilId,
+          idCondicion,
+          rowCount: condicionResult.rowCount,
+        });
       }
 
       // 3. Reemplazar preferencias alimenticias
-      await client.query(
+      const deletePreferencias = await client.query(
         `DELETE FROM preferencias_alimenticias WHERE id_perfil = $1`,
         [perfilId],
       );
+      console.log('[patient-profile][saveFullForm] preferencias deleted', {
+        perfilId,
+        rowCount: deletePreferencias.rowCount,
+      });
 
       for (const idAlimento of data.alimentos_preferidos) {
-        await client.query(
+        const preferidoResult = await client.query(
           `INSERT INTO preferencias_alimenticias (id_perfil, id_alimento, tipo)
            VALUES ($1, $2, 'preferido')
            ON CONFLICT DO NOTHING`,
           [perfilId, idAlimento],
         );
+        console.log('[patient-profile][saveFullForm] alimento preferido inserted', {
+          perfilId,
+          idAlimento,
+          rowCount: preferidoResult.rowCount,
+        });
       }
 
       for (const idAlimento of data.alimentos_restringidos) {
-        await client.query(
+        const restringidoResult = await client.query(
           `INSERT INTO preferencias_alimenticias (id_perfil, id_alimento, tipo)
            VALUES ($1, $2, 'restringido')
            ON CONFLICT DO NOTHING`,
           [perfilId, idAlimento],
         );
+        console.log('[patient-profile][saveFullForm] alimento restringido inserted', {
+          perfilId,
+          idAlimento,
+          rowCount: restringidoResult.rowCount,
+        });
       }
 
       // 4. Reemplazar deportes de interés
-      await client.query(
+      const deleteDeportes = await client.query(
         `DELETE FROM actividades_fisicas_intereses WHERE id_perfil = $1`,
         [perfilId],
       );
+      console.log('[patient-profile][saveFullForm] deportes deleted', {
+        perfilId,
+        rowCount: deleteDeportes.rowCount,
+      });
 
       for (const deporte of data.deportes) {
-        await client.query(
+        const deporteResult = await client.query(
           `INSERT INTO actividades_fisicas_intereses (id_perfil, deporte)
            VALUES ($1, $2)
            ON CONFLICT DO NOTHING`,
           [perfilId, deporte],
         );
+        console.log('[patient-profile][saveFullForm] deporte inserted', {
+          perfilId,
+          deporte,
+          rowCount: deporteResult.rowCount,
+        });
       }
 
       await client.query('COMMIT');
+      console.log('[patient-profile][saveFullForm] commit ok', { perfilId });
 
     } catch (error) {
+      const pgError = error as {
+        code?: string;
+        constraint?: string;
+        table?: string;
+        detail?: string;
+        schema?: string;
+        where?: string;
+        message?: string;
+      };
+
+      console.error('[patient-profile][saveFullForm] error', {
+        perfilId,
+        code: pgError.code,
+        constraint: pgError.constraint,
+        table: pgError.table,
+        detail: pgError.detail,
+        schema: pgError.schema,
+        where: pgError.where,
+        message: pgError.message,
+      });
+
       await client.query('ROLLBACK');
       throw error;
     } finally {
