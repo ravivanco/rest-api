@@ -46,6 +46,8 @@ export function createApp(): Application {
     // ── Producción ──────────────────────────────────────────
     'https://dkfitt.decokasas.com',
     'https://app.dkfitt.decokasas.com',
+    // Swagger servido en Render (misma API)
+    'https://dk-fitt-api.onrender.com',
 
     // ── Desarrollo local — plataforma web ───────────────────
     // Agrega aquí todos los puertos que usa tu app web local
