@@ -3,6 +3,7 @@ import jwt            from 'jsonwebtoken';
 import crypto         from 'crypto';
 import { env }        from '@config/env';
 import { authRepository } from '../repository/auth.repository';
+import { patientProfileRepository } from '../../patient-profile/repository/patient-profile.repository';
 import {
   ConflictError,
   UnauthorizedError,
@@ -127,12 +128,54 @@ export const authService = {
     let id_perfil: number | null = null;
     let formulario_completado = false;
     let modulo_habilitado = false;
+    let onboarding: {
+      nivel_actividad_fisica: string | null;
+      objetivo: string | null;
+      alergias_intolerancias: string | null;
+      restricciones_alimenticias: string | null;
+      condiciones: Array<{ id_condicion: number; nombre: string }>;
+      alimentos_preferidos: Array<{ id_alimento: number; nombre_alimento: string }>;
+      alimentos_restringidos: Array<{ id_alimento: number; nombre_alimento: string }>;
+      deportes: string[];
+    } | null = null;
 
     if (usuario.rol === 'paciente') {
       const perfil = await authRepository.findPerfilByUserId(usuario.id_usuario);
       if (perfil) {
         id_perfil = perfil.id_perfil;
         formulario_completado = perfil.formulario_completado;
+
+        const [perfilBase, condiciones, preferencias, deportes] = await Promise.all([
+          patientProfileRepository.findByPerfilId(perfil.id_perfil),
+          patientProfileRepository.findCondiciones(perfil.id_perfil),
+          patientProfileRepository.findPreferencias(perfil.id_perfil),
+          patientProfileRepository.findDeportes(perfil.id_perfil),
+        ]);
+
+        onboarding = {
+          nivel_actividad_fisica: perfilBase?.nivel_actividad_fisica ?? null,
+          objetivo: perfilBase?.objetivo ?? null,
+          alergias_intolerancias: perfilBase?.alergias_intolerancias ?? null,
+          restricciones_alimenticias: perfilBase?.restricciones_alimenticias ?? null,
+          condiciones: condiciones.map(c => ({
+            id_condicion: c.id_condicion,
+            nombre: c.nombre,
+          })),
+          alimentos_preferidos: preferencias
+            .filter(p => p.tipo === 'preferido')
+            .map(p => ({
+              id_alimento: p.id_alimento,
+              nombre_alimento: p.nombre_alimento,
+            })),
+          alimentos_restringidos: preferencias
+            .filter(p => p.tipo === 'restringido')
+            .map(p => ({
+              id_alimento: p.id_alimento,
+              nombre_alimento: p.nombre_alimento,
+            })),
+          deportes: deportes.map(d => d.deporte),
+        };
+
         // modulo_habilitado se consulta del plan activo en módulos posteriores
       }
     }
@@ -181,6 +224,7 @@ export const authService = {
         rol:                  usuario.rol,
         formulario_completado,
         modulo_habilitado,
+        onboarding,
       },
     };
   },
