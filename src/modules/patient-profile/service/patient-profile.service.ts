@@ -1,6 +1,19 @@
 import { patientProfileRepository } from '../repository/patient-profile.repository';
 import { SaveProfileFormDto }        from '../dto/patient-profile.dto';
-import { NotFoundError, ForbiddenError } from '@errors/AppError';
+import {
+  NotFoundError,
+  ForbiddenError,
+  ValidationError,
+  BusinessRuleError,
+} from '@errors/AppError';
+
+interface PgErrorLike {
+  code?: string;
+}
+
+const isPgError = (error: unknown): error is PgErrorLike => {
+  return typeof error === 'object' && error !== null && 'code' in error;
+};
 
 export const patientProfileService = {
 
@@ -64,16 +77,45 @@ export const patientProfileService = {
    * Al guardar todos los campos requeridos, marca formulario_completado = true.
    */
   async saveFullForm(perfilId: number, data: SaveProfileFormDto) {
-    await patientProfileRepository.saveFullForm(perfilId, {
-      nivel_actividad_fisica:     data.nivel_actividad_fisica,
-      objetivo:                   data.objetivo,
-      alergias_intolerancias:     data.alergias_intolerancias ?? null,
-      restricciones_alimenticias: data.restricciones_alimenticias ?? null,
-      condiciones:                data.condiciones,
-      alimentos_preferidos:       data.alimentos_preferidos,
-      alimentos_restringidos:     data.alimentos_restringidos,
-      deportes:                   data.deportes,
-    });
+    if (!Number.isInteger(perfilId) || perfilId <= 0) {
+      throw new ValidationError('id_perfil inválido para guardar el formulario');
+    }
+
+    const perfil = await patientProfileRepository.findByPerfilId(perfilId);
+    if (!perfil) {
+      throw new NotFoundError('Perfil del paciente');
+    }
+
+    try {
+      await patientProfileRepository.saveFullForm(perfilId, {
+        nivel_actividad_fisica:     data.nivel_actividad_fisica,
+        objetivo:                   data.objetivo,
+        alergias_intolerancias:     data.alergias_intolerancias ?? null,
+        restricciones_alimenticias: data.restricciones_alimenticias ?? null,
+        condiciones:                data.condiciones,
+        alimentos_preferidos:       data.alimentos_preferidos,
+        alimentos_restringidos:     data.alimentos_restringidos,
+        deportes:                   data.deportes,
+      });
+    } catch (error) {
+      if (isPgError(error) && error.code === '23503') {
+        throw new ValidationError('Uno o más IDs enviados no existen en los catálogos');
+      }
+
+      if (isPgError(error) && error.code === '23514') {
+        throw new ValidationError('Uno de los valores enviados no cumple las restricciones permitidas');
+      }
+
+      if (isPgError(error) && error.code === '22P02') {
+        throw new ValidationError('Formato de datos inválido en uno o más campos del formulario');
+      }
+
+      if (isPgError(error) && error.code === '23505') {
+        throw new BusinessRuleError('Ya existe un registro igual en el perfil enviado');
+      }
+
+      throw error;
+    }
 
     // Retornar el perfil actualizado
     return this.getFullProfile(perfilId);

@@ -2,6 +2,17 @@ import { Request, Response, NextFunction }  from 'express';
 import { patientProfileService }            from '../service/patient-profile.service';
 import { ok, noContent }                    from '@utils/response';
 import { SaveProfileFormDto, AddCondicionDto, AddPreferenciaDto, AddDeporteDto } from '../dto/patient-profile.dto';
+import { ValidationError }                  from '@errors/AppError';
+
+const getPerfilIdFromRequest = (req: Request): number => {
+  const perfilId = req.user?.id_perfil;
+
+  if (!perfilId || !Number.isInteger(perfilId) || perfilId <= 0) {
+    throw new ValidationError('La sesión no contiene un id_perfil válido para completar el formulario. Inicia sesión nuevamente.');
+  }
+
+  return perfilId;
+};
 
 export const patientProfileController = {
 
@@ -11,7 +22,7 @@ export const patientProfileController = {
    */
   async getMyProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const profile = await patientProfileService.getFullProfile(req.user!.id_perfil!);
+      const profile = await patientProfileService.getFullProfile(getPerfilIdFromRequest(req));
       ok(res, profile);
     } catch (error) {
       next(error);
@@ -56,7 +67,7 @@ export const patientProfileController = {
   async saveMyProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data    = req.body as SaveProfileFormDto;
-      const perfilId = req.user!.id_perfil!;
+      const perfilId = getPerfilIdFromRequest(req);
 
       const updated = await patientProfileService.saveFullForm(perfilId, data);
       ok(res, updated, 'Perfil actualizado. La nutricionista revisará tu información.');
@@ -73,7 +84,7 @@ export const patientProfileController = {
   async addCondicion(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id_condicion } = req.body as AddCondicionDto;
-      await patientProfileService.addCondicion(req.user!.id_perfil!, id_condicion);
+      await patientProfileService.addCondicion(getPerfilIdFromRequest(req), id_condicion);
       ok(res, null, 'Condición médica agregada');
     } catch (error) {
       next(error);
@@ -88,7 +99,7 @@ export const patientProfileController = {
   async removeCondicion(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const idCondicion = parseInt(String(req.params.id), 10);
-      await patientProfileService.removeCondicion(req.user!.id_perfil!, idCondicion);
+      await patientProfileService.removeCondicion(getPerfilIdFromRequest(req), idCondicion);
       noContent(res);
     } catch (error) {
       next(error);
@@ -103,7 +114,7 @@ export const patientProfileController = {
   async addPreferencia(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id_alimento, tipo } = req.body as AddPreferenciaDto;
-      await patientProfileService.addPreferencia(req.user!.id_perfil!, id_alimento, tipo);
+      await patientProfileService.addPreferencia(getPerfilIdFromRequest(req), id_alimento, tipo);
       ok(res, null, 'Preferencia alimenticia agregada');
     } catch (error) {
       next(error);
@@ -118,7 +129,7 @@ export const patientProfileController = {
   async removePreferencia(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const idPreferencia = parseInt(String(req.params.id), 10);
-      await patientProfileService.removePreferencia(req.user!.id_perfil!, idPreferencia);
+      await patientProfileService.removePreferencia(getPerfilIdFromRequest(req), idPreferencia);
       noContent(res);
     } catch (error) {
       next(error);
@@ -133,7 +144,7 @@ export const patientProfileController = {
   async addDeporte(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { deporte } = req.body as AddDeporteDto;
-      await patientProfileService.addDeporte(req.user!.id_perfil!, deporte);
+      await patientProfileService.addDeporte(getPerfilIdFromRequest(req), deporte);
       ok(res, null, 'Deporte de interés agregado');
     } catch (error) {
       next(error);
@@ -148,7 +159,7 @@ export const patientProfileController = {
   async removeDeporte(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const idActividad = parseInt(String(req.params.id), 10);
-      await patientProfileService.removeDeporte(req.user!.id_perfil!, idActividad);
+      await patientProfileService.removeDeporte(getPerfilIdFromRequest(req), idActividad);
       noContent(res);
     } catch (error) {
       next(error);
