@@ -156,8 +156,26 @@ export const patientProfileService = {
       throw error;
     }
 
-    // Retornar el perfil actualizado
-    return this.getFullProfile(perfilId);
+    // Retornar el perfil actualizado.
+    // Si falla la hidratacion de relaciones, no bloquear el onboarding:
+    // el guardado ya fue exitoso en la transaccion anterior.
+    try {
+      return await this.getFullProfile(perfilId);
+    } catch (error) {
+      const perfilBase = await patientProfileRepository.findByPerfilId(perfilId);
+
+      if (perfilBase) {
+        return {
+          ...perfilBase,
+          condiciones: [],
+          alimentos_preferidos: [],
+          alimentos_restringidos: [],
+          deportes: [],
+        };
+      }
+
+      throw error;
+    }
   },
 
 
