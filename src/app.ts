@@ -19,6 +19,9 @@ import { errorHandler } from '@middlewares/errorHandler';
 export function createApp(): Application {
   const app = express();
 
+  // Render y Cloudflare operan como proxy reverso; esto permite resolver la IP real del cliente.
+  app.set('trust proxy', 1);
+
 // ── Seguridad: cabeceras HTTP ─────────────────────────────────
   app.use(helmet({
     // Para una API pura (sin HTML), podemos relajar algunas políticas
