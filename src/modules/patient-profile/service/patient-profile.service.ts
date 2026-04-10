@@ -1,4 +1,5 @@
 import { patientProfileRepository } from '../repository/patient-profile.repository';
+import { foodsRepository } from '../../foods/repository/foods.repository';
 import { SaveProfileFormDto }        from '../dto/patient-profile.dto';
 import {
   NotFoundError,
@@ -16,6 +17,44 @@ const isPgError = (error: unknown): error is PgErrorLike => {
 };
 
 export const patientProfileService = {
+
+  /**
+   * Catálogo consolidado para onboarding móvil.
+   * Incluye condiciones médicas y alimentos activos con IDs.
+   */
+  async getOnboardingOptions() {
+    const [condiciones, alimentosResult] = await Promise.all([
+      patientProfileRepository.findCatalogoCondiciones(),
+      foodsRepository.findAll({ limit: 500, offset: 0, activo: 'true' }),
+    ]);
+
+    return {
+      condiciones,
+      alimentos: alimentosResult.rows.map(a => ({
+        id_alimento: a.id_alimento,
+        nombre: a.nombre,
+        categoria: a.categoria,
+      })),
+      activity_levels: ['sedentario', 'bajo', 'medio', 'alto'],
+      objetivos: [
+        'Reducir mi peso corporal',
+        'Ganar masa muscular',
+        'Mejorar mis hábitos alimenticios',
+      ],
+      deportes: [
+        'gimnasio',
+        'running',
+        'caminata',
+        'ciclismo',
+        'futbol',
+        'basquet',
+        'natacion',
+        'entrenamiento_casa',
+        'otro',
+        'ninguno',
+      ],
+    };
+  },
 
   /**
    * Obtiene el formulario completo del paciente con todas sus relaciones.

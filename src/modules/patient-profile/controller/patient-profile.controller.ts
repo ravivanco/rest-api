@@ -17,6 +17,19 @@ const getPerfilIdFromRequest = (req: Request): number => {
 export const patientProfileController = {
 
   /**
+   * GET /api/patient-profile/options
+   * Catálogos requeridos por la app móvil para onboarding.
+   */
+  async getOptions(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const options = await patientProfileService.getOnboardingOptions();
+      ok(res, options);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
    * GET /api/patient-profile/me
    * El paciente ve su propio formulario completo.
    */

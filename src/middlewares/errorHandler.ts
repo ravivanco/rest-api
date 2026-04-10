@@ -3,6 +3,14 @@ import { ZodError } from 'zod';
 import { AppError } from '@errors/AppError';
 import { env } from '@config/env';
 
+interface PgErrorLike {
+  code?: string;
+}
+
+const isPgError = (error: unknown): error is PgErrorLike => {
+  return typeof error === 'object' && error !== null && 'code' in error;
+};
+
 /**
  * Middleware global de manejo de errores.
  * DEBE ser el último middleware registrado en app.ts.
@@ -39,6 +47,40 @@ export const errorHandler = (
       error: {
         code:    err.code,
         message: err.message,
+      },
+    });
+    return;
+  }
+
+  // Errores comunes de PostgreSQL convertidos a respuestas funcionales
+  if (isPgError(err) && err.code === '23503') {
+    res.status(422).json({
+      success: false,
+      error: {
+        code: 'FOREIGN_KEY_VIOLATION',
+        message: 'Uno o más IDs enviados no existen en el catálogo.',
+      },
+    });
+    return;
+  }
+
+  if (isPgError(err) && err.code === '23505') {
+    res.status(409).json({
+      success: false,
+      error: {
+        code: 'CONFLICT',
+        message: 'El recurso que intentas guardar ya existe.',
+      },
+    });
+    return;
+  }
+
+  if (isPgError(err) && (err.code === '23514' || err.code === '22P02')) {
+    res.status(400).json({
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Los datos enviados no cumplen el formato esperado.',
       },
     });
     return;

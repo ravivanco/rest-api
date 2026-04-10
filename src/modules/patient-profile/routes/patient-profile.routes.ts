@@ -41,6 +41,24 @@ patientProfileRouter.get(
 
 /**
  * @swagger
+ * /patient-profile/options:
+ *   get:
+ *     summary: Catálogos para onboarding móvil
+ *     description: Devuelve condiciones médicas y alimentos activos para mapear selecciones a IDs.
+ *     tags: [Patient Profile]
+ *     responses:
+ *       200:
+ *         description: Catálogos de onboarding
+ */
+patientProfileRouter.get(
+  '/options',
+  authenticate,
+  requireRole('paciente', 'nutricionista', 'administrador'),
+  patientProfileController.getOptions,
+);
+
+/**
+ * @swagger
  * /patient-profile/me:
  *   get:
  *     summary: Ver mi formulario inicial
