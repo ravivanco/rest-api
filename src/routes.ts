@@ -17,6 +17,7 @@ import { adherenceRouter }             from './modules/adherence/routes/adherenc
 import { alertsRouter }                from './modules/alerts/routes/alerts.routes';
 import { dashboardRouter }             from './modules/dashboard/routes/dashboard.routes';
 import { appointmentsRouter }          from './modules/appointments/routes/appointments.routes';
+import { adminRouter }                 from './modules/admin/routes/admin.routes';
 
 const router = Router();
 
@@ -66,6 +67,7 @@ router.use('/adherence',            adherenceRouter);
 router.use('/alerts',               alertsRouter);
 router.use('/dashboard',            dashboardRouter);
 router.use('/appointments',         appointmentsRouter);
+router.use('/admin',                adminRouter);
 
 export { router };
 // import { calorieControlRouter }      from './modules/calorie-control/routes/calorie-control.routes';

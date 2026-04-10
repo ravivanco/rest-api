@@ -80,6 +80,7 @@ Conecta la **app móvil** del paciente con la **plataforma web** de la nutricion
       { name: 'Alerts',                description: '🔔 Alertas clínicas automáticas' },
       { name: 'Dashboard',             description: '📱 Dashboards y métricas consolidadas' },
       { name: 'Appointments',          description: '📅 Citas nutricionales' },
+      { name: 'Admin',                 description: '🛡️ Gestión administrativa de usuarios' },
     ],
 
     // ── Seguridad global ───────────────────────────────────────────────────
