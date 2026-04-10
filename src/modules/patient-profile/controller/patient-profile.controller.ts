@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction }  from 'express';
 import { patientProfileService }            from '../service/patient-profile.service';
 import { ok, noContent }                    from '@utils/response';
-import { SaveProfileFormDto, AddCondicionDto, AddPreferenciaDto, AddDeporteDto } from '../dto/patient-profile.dto';
+import { SyncProfileFormDto, AddCondicionDto, AddPreferenciaDto, AddDeporteDto } from '../dto/patient-profile.dto';
 import { ValidationError }                  from '@errors/AppError';
 
 const getPerfilIdFromRequest = (req: Request): number => {
@@ -79,11 +79,11 @@ export const patientProfileController = {
    */
   async saveMyProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data    = req.body as SaveProfileFormDto;
+      const data    = req.body as SyncProfileFormDto;
       const perfilId = getPerfilIdFromRequest(req);
 
-      const updated = await patientProfileService.saveFullForm(perfilId, data);
-      ok(res, updated, 'Perfil actualizado. La nutricionista revisará tu información.');
+      const updated = await patientProfileService.syncFormProgress(perfilId, data);
+      ok(res, updated, 'Perfil sincronizado correctamente.');
     } catch (error) {
       next(error);
     }

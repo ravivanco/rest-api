@@ -1,6 +1,6 @@
 import { patientProfileRepository } from '../repository/patient-profile.repository';
 import { foodsRepository } from '../../foods/repository/foods.repository';
-import { SaveProfileFormDto }        from '../dto/patient-profile.dto';
+import { SaveProfileFormDto, SyncProfileFormDto } from '../dto/patient-profile.dto';
 import {
   NotFoundError,
   ForbiddenError,
@@ -176,6 +176,46 @@ export const patientProfileService = {
 
       throw error;
     }
+  },
+
+
+  /**
+   * Sincroniza el formulario por pasos desde app movil.
+   * Guarda solo los campos recibidos y conserva los previos.
+   */
+  async syncFormProgress(perfilId: number, data: SyncProfileFormDto) {
+    if (!Number.isInteger(perfilId) || perfilId <= 0) {
+      throw new ValidationError('id_perfil inválido para sincronizar el formulario');
+    }
+
+    const perfil = await patientProfileRepository.findByPerfilId(perfilId);
+    if (!perfil) {
+      throw new NotFoundError('Perfil del paciente');
+    }
+
+    try {
+      await patientProfileRepository.saveSyncForm(perfilId, data);
+    } catch (error) {
+      if (isPgError(error) && error.code === '23503') {
+        throw new ValidationError('Uno o más IDs enviados no existen en los catálogos');
+      }
+
+      if (isPgError(error) && error.code === '23514') {
+        throw new ValidationError('Uno de los valores enviados no cumple las restricciones permitidas');
+      }
+
+      if (isPgError(error) && error.code === '22P02') {
+        throw new ValidationError('Formato de datos inválido en uno o más campos del formulario');
+      }
+
+      if (isPgError(error) && error.code === '23505') {
+        throw new BusinessRuleError('Ya existe un registro igual en el perfil enviado');
+      }
+
+      throw error;
+    }
+
+    return this.getFullProfile(perfilId);
   },
 
 

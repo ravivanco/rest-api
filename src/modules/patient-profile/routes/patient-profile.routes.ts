@@ -3,7 +3,7 @@ import { patientProfileController }  from '../controller/patient-profile.control
 import { authenticate }              from '@middlewares/authenticate';
 import { requireRole }               from '@middlewares/authorize';
 import { validate }                  from '@middlewares/validate';
-import { SaveProfileFormDto, AddCondicionDto, AddPreferenciaDto, AddDeporteDto } from '../dto/patient-profile.dto';
+import { SyncProfileFormDto, AddCondicionDto, AddPreferenciaDto, AddDeporteDto } from '../dto/patient-profile.dto';
 
 export const patientProfileRouter = Router();
 
@@ -121,7 +121,7 @@ patientProfileRouter.put(
   '/me',
   authenticate,
   requireRole('paciente'),
-  validate(SaveProfileFormDto),
+  validate(SyncProfileFormDto),
   patientProfileController.saveMyProfile,
 );
 

@@ -300,6 +300,140 @@ export const patientProfileRepository = {
 
 
   /**
+   * Sincronizacion incremental del formulario: actualiza solo los campos recibidos.
+   * Mantiene consistencia en una transaccion y recalcula formulario_completado.
+   */
+  async saveSyncForm(perfilId: number, data: {
+    nivel_actividad_fisica?: string;
+    objetivo?: string;
+    alergias_intolerancias?: string | null;
+    restricciones_alimenticias?: string | null;
+    condiciones?: number[];
+    alimentos_preferidos?: number[];
+    alimentos_restringidos?: number[];
+    deportes?: string[];
+  }): Promise<void> {
+
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const setClauses: string[] = [];
+      const values: Array<string | null> = [];
+
+      if (Object.prototype.hasOwnProperty.call(data, 'nivel_actividad_fisica')) {
+        values.push(data.nivel_actividad_fisica ?? null);
+        setClauses.push(`nivel_actividad_fisica = $${values.length}`);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(data, 'objetivo')) {
+        values.push(data.objetivo ?? null);
+        setClauses.push(`objetivo = $${values.length}`);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(data, 'alergias_intolerancias')) {
+        values.push(data.alergias_intolerancias ?? null);
+        setClauses.push(`alergias_intolerancias = $${values.length}`);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(data, 'restricciones_alimenticias')) {
+        values.push(data.restricciones_alimenticias ?? null);
+        setClauses.push(`restricciones_alimenticias = $${values.length}`);
+      }
+
+      if (setClauses.length > 0) {
+        values.push(String(perfilId));
+        await client.query(
+          `UPDATE perfiles_paciente
+           SET ${setClauses.join(', ')},
+               fecha_ultima_actualizacion = NOW()
+           WHERE id_perfil = $${values.length}`,
+          values,
+        );
+      }
+
+      if (Object.prototype.hasOwnProperty.call(data, 'condiciones')) {
+        await client.query(
+          `DELETE FROM paciente_condiciones WHERE id_perfil = $1`,
+          [perfilId],
+        );
+
+        for (const idCondicion of data.condiciones ?? []) {
+          await client.query(
+            `INSERT INTO paciente_condiciones (id_perfil, id_condicion)
+             VALUES ($1, $2)
+             ON CONFLICT DO NOTHING`,
+            [perfilId, idCondicion],
+          );
+        }
+      }
+
+      if (
+        Object.prototype.hasOwnProperty.call(data, 'alimentos_preferidos') ||
+        Object.prototype.hasOwnProperty.call(data, 'alimentos_restringidos')
+      ) {
+        await client.query(
+          `DELETE FROM preferencias_alimenticias WHERE id_perfil = $1`,
+          [perfilId],
+        );
+
+        for (const idAlimento of data.alimentos_preferidos ?? []) {
+          await client.query(
+            `INSERT INTO preferencias_alimenticias (id_perfil, id_alimento, tipo)
+             VALUES ($1, $2, 'preferido')
+             ON CONFLICT DO NOTHING`,
+            [perfilId, idAlimento],
+          );
+        }
+
+        for (const idAlimento of data.alimentos_restringidos ?? []) {
+          await client.query(
+            `INSERT INTO preferencias_alimenticias (id_perfil, id_alimento, tipo)
+             VALUES ($1, $2, 'restringido')
+             ON CONFLICT DO NOTHING`,
+            [perfilId, idAlimento],
+          );
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(data, 'deportes')) {
+        await client.query(
+          `DELETE FROM actividades_fisicas_intereses WHERE id_perfil = $1`,
+          [perfilId],
+        );
+
+        for (const deporte of data.deportes ?? []) {
+          await client.query(
+            `INSERT INTO actividades_fisicas_intereses (id_perfil, deporte)
+             VALUES ($1, $2)
+             ON CONFLICT DO NOTHING`,
+            [perfilId, deporte],
+          );
+        }
+      }
+
+      await client.query(
+        `UPDATE perfiles_paciente
+         SET formulario_completado = (
+           objetivo IS NOT NULL
+           AND BTRIM(objetivo) <> ''
+         )
+         WHERE id_perfil = $1`,
+        [perfilId],
+      );
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+
+  /**
    * Agrega una condición médica individual al perfil.
    */
   async addCondicion(perfilId: number, idCondicion: number): Promise<void> {

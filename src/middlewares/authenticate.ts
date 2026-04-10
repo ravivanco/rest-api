@@ -19,13 +19,25 @@ export const authenticate = (
   try {
     const authHeader = req.headers.authorization;
 
-    // Verificar que el header Authorization existe y tiene formato correcto
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // Swagger puede enviar "Bearer <token>", "bearer <token>" o incluso duplicar "Bearer ".
+    // Normalizamos para reducir falsos 401 por formato del header.
+    if (!authHeader) {
       throw new UnauthorizedError('Token de acceso requerido');
     }
 
-    // Extraer el token (quitar "Bearer ")
-    const token = authHeader.split(' ')[1];
+    let token = authHeader.trim();
+
+    if (/^bearer\s+/i.test(token)) {
+      token = token.replace(/^bearer\s+/i, '').trim();
+    }
+
+    if (/^bearer\s+/i.test(token)) {
+      token = token.replace(/^bearer\s+/i, '').trim();
+    }
+
+    if (!token) {
+      throw new UnauthorizedError('Token de acceso requerido');
+    }
 
     // Verificar firma y expiración
     const payload = jwt.verify(token, process.env.JWT_SECRET as string) as unknown as {

@@ -82,6 +82,63 @@ export const SaveProfileFormDto = z.object({
 
 export type SaveProfileFormDto = z.infer<typeof SaveProfileFormDto>;
 
+/**
+ * DTO flexible para sincronizacion incremental desde app movil.
+ * Permite guardar por pasos (form 1..7) sin perder datos ya registrados.
+ */
+export const SyncProfileFormDto = z.object({
+
+  nivel_actividad_fisica: z.enum(
+    ['sedentario', 'bajo', 'medio', 'alto'] as const,
+    { message: 'Nivel de actividad física inválido' }
+  ).optional(),
+
+  objetivo: z
+    .string({ message: 'El objetivo debe ser texto' })
+    .min(3,   'El objetivo debe tener al menos 3 caracteres')
+    .max(120, 'El objetivo no puede superar 120 caracteres')
+    .optional(),
+
+  alergias_intolerancias: z
+    .string()
+    .max(500, 'Máximo 500 caracteres')
+    .optional()
+    .nullable(),
+
+  restricciones_alimenticias: z
+    .string()
+    .max(500, 'Máximo 500 caracteres')
+    .optional()
+    .nullable(),
+
+  condiciones: z
+    .array(z.number().int().positive())
+    .optional(),
+
+  alimentos_preferidos: z
+    .array(z.number().int().positive())
+    .optional(),
+
+  alimentos_restringidos: z
+    .array(z.number().int().positive())
+    .optional(),
+
+  deportes: z
+    .array(
+      z.enum(DEPORTES_VALIDOS, {
+        errorMap: () => ({
+          message: `Deporte inválido. Valores permitidos: ${DEPORTES_VALIDOS.join(', ')}`,
+        }),
+      })
+    )
+    .optional(),
+})
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'Debes enviar al menos un campo para sincronizar',
+  });
+
+export type SyncProfileFormDto = z.infer<typeof SyncProfileFormDto>;
+
 
 /**
  * DTO para agregar una condición médica individual.
