@@ -222,6 +222,8 @@ export const authService = {
         apellidos:            usuario.apellidos,
         correo_institucional: usuario.correo_institucional,
         rol:                  usuario.rol,
+        fecha_nacimiento:     usuario.fecha_nacimiento,
+        edad:                 usuario.edad,
         formulario_completado,
         modulo_habilitado,
         onboarding,
