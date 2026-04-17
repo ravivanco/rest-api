@@ -19,36 +19,7 @@ const options: swaggerJsdoc.Options = {
     info: {
       title:   'DK Fitt REST API',
       version: '1.0.0',
-      description: `
-## Sistema de control nutricional corporativo — Decokasas S.A.S.
-
-### ¿Qué hace esta API?
-Gestiona el programa de bienestar nutricional de los empleados de Decokasas.
-Conecta la **app móvil** del paciente con la **plataforma web** de la nutricionista.
-
-### Actores del sistema
-| Actor | Interfaz | Rol en la API |
-|---|---|---|
-| Paciente | App móvil | Registra cumplimiento, consulta su plan |
-| Nutricionista | Plataforma web | Gestiona planes, evalúa, monitorea |
-
-### Flujo completo del sistema
-\`\`\`
-1. Paciente se registra → completa formulario inicial
-2. Nutricionista registra evaluación clínica (bioimpedancia)
-3. Nutricionista crea y activa el plan nutricional
-4. Paciente ve su plan en la app móvil
-5. Paciente registra cumplimiento diario (comidas, ejercicios, peso)
-6. Nutricionista monitorea adherencia y genera alertas
-\`\`\`
-
-### Reglas de negocio principales
-- **RN-01:** Solo correos \`@decokasas.com\` pueden registrarse
-- **RN-02:** El módulo Mi Plan solo se activa cuando la nutricionista lo habilita
-- **RN-03:** El seguimiento diario solo puede registrarse en el día actual
-- **RN-04:** Consumos adicionales solo impactan el balance si se confirman
-- **RN-05:** Exceso calórico genera sugerencia de ejercicios compensatorios
-      `,
+      description: 'API para la gestión del bienestar nutricional (App móvil y Web).',
       contact: {
         name:  'Equipo DK Fitt — Decokasas S.A.S.',
         email: 'dev@decokasas.com',
