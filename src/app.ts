@@ -155,6 +155,8 @@ export function createApp(): Application {
           tagsSorter: 'alpha',
           // Muestra el botón "Try it out" automáticamente
           tryItOutEnabled: false,
+          // Oculta la sección inmensa de "Schemas/Models" al fondo de la página
+          defaultModelsExpandDepth: -1,
           // Tiempo máximo de espera para las peticiones
           requestTimeout: 30000,
         },
