@@ -204,7 +204,7 @@ export const patientProfileRepository = {
         });
       }
 
-      // 3. Reemplazar preferencias alimenticias
+      // 3. Reemplazar preferencias alimenticias de ambos tipos
       const deletePreferencias = await client.query(
         `DELETE FROM preferencias_alimenticias WHERE id_perfil = $1`,
         [perfilId],
@@ -369,12 +369,9 @@ export const patientProfileRepository = {
         }
       }
 
-      if (
-        Object.prototype.hasOwnProperty.call(data, 'alimentos_preferidos') ||
-        Object.prototype.hasOwnProperty.call(data, 'alimentos_restringidos')
-      ) {
+      if (Object.prototype.hasOwnProperty.call(data, 'alimentos_preferidos')) {
         await client.query(
-          `DELETE FROM preferencias_alimenticias WHERE id_perfil = $1`,
+          `DELETE FROM preferencias_alimenticias WHERE id_perfil = $1 AND tipo = 'preferido'`,
           [perfilId],
         );
 
@@ -386,6 +383,13 @@ export const patientProfileRepository = {
             [perfilId, idAlimento],
           );
         }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(data, 'alimentos_restringidos')) {
+        await client.query(
+          `DELETE FROM preferencias_alimenticias WHERE id_perfil = $1 AND tipo = 'restringido'`,
+          [perfilId],
+        );
 
         for (const idAlimento of data.alimentos_restringidos ?? []) {
           await client.query(

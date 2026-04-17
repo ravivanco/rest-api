@@ -112,7 +112,7 @@ export const dashboardRepository = {
     // Datos básicos del paciente
     const perfilResult = await pool.query(
       `SELECT u.nombres, u.apellidos, u.correo_institucional,
-              u.edad, u.sexo, pp.nivel_actividad_fisica,
+              u.edad, u.fecha_nacimiento, u.sexo, pp.nivel_actividad_fisica,
               pp.objetivo, pp.formulario_completado
        FROM   usuarios u JOIN perfiles_paciente pp ON pp.id_usuario = u.id_usuario
        WHERE  pp.id_perfil = $1`,

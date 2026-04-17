@@ -9,6 +9,10 @@ export interface EvaluacionRow {
   altura_cm:                       number;
   porcentaje_grasa:                number | null;
   masa_muscular_kg:                number | null;
+  grasa_visceral:                  number | null;
+  agua_corporal_pct:               number | null;
+  masa_osea_kg:                    number | null;
+  tmb_kcal:                        number | null;
   otros_indicadores:               Record<string, unknown> | null;
   calorias_diarias_calculadas:     number | null;
   distribucion_carbohidratos_pct:  number | null;
@@ -36,6 +40,10 @@ export const clinicalEvaluationsRepository = {
     altura_cm:                       number;
     porcentaje_grasa:                number | null;
     masa_muscular_kg:                number | null;
+    grasa_visceral:                  number | null;
+    agua_corporal_pct:               number | null;
+    masa_osea_kg:                    number | null;
+    tmb_kcal:                        number | null;
     otros_indicadores:               Record<string, unknown> | null;
     calorias_diarias_calculadas:     number;
     distribucion_carbohidratos_pct:  number;
@@ -43,15 +51,15 @@ export const clinicalEvaluationsRepository = {
     distribucion_grasas_pct:         number;
   }): Promise<EvaluacionRow> {
 
-    const result = await pool.query<EvaluacionRow>(
       `INSERT INTO evaluaciones_clinicas (
          id_perfil, id_nutricionista, fecha_evaluacion,
          peso_kg, altura_cm, porcentaje_grasa, masa_muscular_kg,
+         grasa_visceral, agua_corporal_pct, masa_osea_kg, tmb_kcal,
          otros_indicadores, calorias_diarias_calculadas,
          distribucion_carbohidratos_pct, distribucion_proteinas_pct,
          distribucion_grasas_pct
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        RETURNING *`,
       [
         data.id_perfil,
@@ -61,6 +69,10 @@ export const clinicalEvaluationsRepository = {
         data.altura_cm,
         data.porcentaje_grasa,
         data.masa_muscular_kg,
+        data.grasa_visceral,
+        data.agua_corporal_pct,
+        data.masa_osea_kg,
+        data.tmb_kcal,
         data.otros_indicadores ? JSON.stringify(data.otros_indicadores) : null,
         data.calorias_diarias_calculadas,
         data.distribucion_carbohidratos_pct,
@@ -154,11 +166,17 @@ export const clinicalEvaluationsRepository = {
     imc:                         number;
     porcentaje_grasa:            number | null;
     masa_muscular_kg:            number | null;
+    grasa_visceral:              number | null;
+    agua_corporal_pct:           number | null;
+    masa_osea_kg:                number | null;
+    tmb_kcal:                    number | null;
     calorias_diarias_calculadas: number | null;
   }[]> {
     const result = await pool.query(
       `SELECT fecha_evaluacion, peso_kg, imc,
               porcentaje_grasa, masa_muscular_kg,
+              grasa_visceral, agua_corporal_pct,
+              masa_osea_kg, tmb_kcal,
               calorias_diarias_calculadas
        FROM   evaluaciones_clinicas
        WHERE  id_perfil = $1

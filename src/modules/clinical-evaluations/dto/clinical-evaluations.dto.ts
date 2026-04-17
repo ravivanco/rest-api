@@ -39,8 +39,33 @@ export const CreateEvaluationDto = z.object({
     .optional()
     .nullable(),
 
+  grasa_visceral: z
+    .number()
+    .min(0, 'La grasa visceral no puede ser negativa')
+    .optional()
+    .nullable(),
+
+  agua_corporal_pct: z
+    .number()
+    .min(0, 'El agua corporal mínima es 0%')
+    .max(100, 'El agua corporal máxima es 100%')
+    .optional()
+    .nullable(),
+
+  masa_osea_kg: z
+    .number()
+    .min(0, 'La masa ósea no puede ser negativa')
+    .optional()
+    .nullable(),
+
+  tmb_kcal: z
+    .number()
+    .positive('El metabolismo basal debe ser positivo')
+    .optional()
+    .nullable(),
+
   // Campo libre en formato JSON para datos adicionales de la báscula
-  // Ejemplo: { "agua_corporal_pct": 52.1, "grasa_visceral": 8 }
+  // Ejemplo: { "edad_metabolica": 30 }
   otros_indicadores: z
     .record(z.string(), z.unknown())
     .optional()

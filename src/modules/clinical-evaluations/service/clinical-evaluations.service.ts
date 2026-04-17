@@ -78,6 +78,10 @@ export const clinicalEvaluationsService = {
       altura_cm:                       data.altura_cm,
       porcentaje_grasa:                data.porcentaje_grasa ?? null,
       masa_muscular_kg:                data.masa_muscular_kg ?? null,
+      grasa_visceral:                  data.grasa_visceral ?? null,
+      agua_corporal_pct:               data.agua_corporal_pct ?? null,
+      masa_osea_kg:                    data.masa_osea_kg ?? null,
+      tmb_kcal:                        data.tmb_kcal ?? null,
       otros_indicadores:               data.otros_indicadores ?? null,
       calorias_diarias_calculadas:     calculo.calorias_diarias,
       distribucion_carbohidratos_pct:  calculo.distribucion_carbohidratos_pct,
@@ -95,6 +99,18 @@ export const clinicalEvaluationsService = {
             : null,
           masa_muscular_kg: evaluacion.masa_muscular_kg && evaluacionAnterior.masa_muscular_kg
             ? Number((evaluacion.masa_muscular_kg - evaluacionAnterior.masa_muscular_kg).toFixed(2))
+            : null,
+          grasa_visceral: evaluacion.grasa_visceral && evaluacionAnterior.grasa_visceral
+            ? Number((evaluacion.grasa_visceral - evaluacionAnterior.grasa_visceral).toFixed(2))
+            : null,
+          agua_corporal_pct: evaluacion.agua_corporal_pct && evaluacionAnterior.agua_corporal_pct
+            ? Number((evaluacion.agua_corporal_pct - evaluacionAnterior.agua_corporal_pct).toFixed(2))
+            : null,
+          masa_osea_kg: evaluacion.masa_osea_kg && evaluacionAnterior.masa_osea_kg
+            ? Number((evaluacion.masa_osea_kg - evaluacionAnterior.masa_osea_kg).toFixed(2))
+            : null,
+          tmb_kcal: evaluacion.tmb_kcal && evaluacionAnterior.tmb_kcal
+            ? Number((evaluacion.tmb_kcal - evaluacionAnterior.tmb_kcal).toFixed(2))
             : null,
         }
       : null;
@@ -181,6 +197,10 @@ export const clinicalEvaluationsService = {
         imc:              calcularDiff(primera.imc, segunda.imc),
         porcentaje_grasa: calcularDiff(primera.porcentaje_grasa, segunda.porcentaje_grasa),
         masa_muscular_kg: calcularDiff(primera.masa_muscular_kg, segunda.masa_muscular_kg),
+        grasa_visceral:   calcularDiff(primera.grasa_visceral, segunda.grasa_visceral),
+        agua_corporal_pct: calcularDiff(primera.agua_corporal_pct, segunda.agua_corporal_pct),
+        masa_osea_kg:     calcularDiff(primera.masa_osea_kg, segunda.masa_osea_kg),
+        tmb_kcal:         calcularDiff(primera.tmb_kcal, segunda.tmb_kcal),
         calorias:         calcularDiff(
           primera.calorias_diarias_calculadas,
           segunda.calorias_diarias_calculadas,
@@ -255,6 +275,30 @@ export const clinicalEvaluationsService = {
           .map(d => ({
             fecha: d.fecha_evaluacion,
             valor: d.masa_muscular_kg,
+          })),
+        agua: datos
+          .filter(d => d.agua_corporal_pct !== null)
+          .map(d => ({
+            fecha: d.fecha_evaluacion,
+            valor: d.agua_corporal_pct,
+          })),
+        grasa_v: datos
+          .filter(d => d.grasa_visceral !== null)
+          .map(d => ({
+            fecha: d.fecha_evaluacion,
+            valor: d.grasa_visceral,
+          })),
+        masa_osea: datos
+          .filter(d => d.masa_osea_kg !== null)
+          .map(d => ({
+            fecha: d.fecha_evaluacion,
+            valor: d.masa_osea_kg,
+          })),
+        tmb: datos
+          .filter(d => d.tmb_kcal !== null)
+          .map(d => ({
+            fecha: d.fecha_evaluacion,
+            valor: d.tmb_kcal,
           })),
         calorias: datos
           .filter(d => d.calorias_diarias_calculadas !== null)
