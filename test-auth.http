@@ -1,0 +1,68 @@
+### ARCHIVO DE PRUEBAS RÁPIDAS PARA AUTH
+### Puedes usar la extensión "REST Client" o "Thunder Client" en VS Code para ejecutar estas peticiones directamente haciendo clic en "Send Request"
+
+@baseUrl = http://localhost:3000/api
+# Variables temporales para guardar los tokens (Si usas REST Client de VS Code)
+@accessToken = {{login.response.body.data.access_token}}
+@refreshToken = {{login.response.body.data.refresh_token}}
+
+
+### 1. REGISTRAR UN NUEVO PACIENTE
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "correo_institucional": "test.usuario@decokasas.com",
+  "contrasena": "MiClave123!",
+  "nombres": "Test",
+  "apellidos": "Usuario",
+  "edad": 30,
+  "sexo": "O",
+  "fecha_nacimiento": "1994-01-01"
+}
+
+
+### 2. INICIAR SESIÓN (Guarda los tokens automáticamente si usas REST Client)
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "correo_institucional": "test.usuario@decokasas.com",
+  "contrasena": "MiClave123!"
+}
+
+
+### 3. OBTENER MIS DATOS (Usa el access_token obtenido en el login)
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{accessToken}}
+
+
+### 4. RENOVAR EL TOKEN (Simula que el access_token caducó)
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "{{refreshToken}}"
+}
+
+
+### 5. CAMBIAR CONTRASEÑA
+PATCH {{baseUrl}}/auth/change-password
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "contrasena_actual": "MiClave123!",
+  "contrasena_nueva": "SuperSegura456!"
+}
+
+
+### 6. CERRAR SESIÓN (Invalida el refresh token)
+POST {{baseUrl}}/auth/logout
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "refresh_token": "{{refreshToken}}"
+}

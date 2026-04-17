@@ -154,13 +154,13 @@ Conecta la **app móvil** del paciente con la **plataforma web** de la nutricion
           type:     'object',
           required: ['correo_institucional', 'contrasena', 'nombres', 'apellidos', 'edad', 'sexo', 'fecha_nacimiento'],
           properties: {
-            correo_institucional: { type: 'string', format: 'email',  example: 'juan.perez@decokasas.com' },
-            contrasena:           { type: 'string', minLength: 8,     example: 'MiClave123!', description: 'Mínimo 8 chars, mayúscula, minúscula, número y símbolo especial' },
-            nombres:              { type: 'string',                   example: 'Juan' },
-            apellidos:            { type: 'string',                   example: 'Pérez' },
-            edad:                 { type: 'integer', minimum: 16,     example: 32 },
-            sexo:                 { type: 'string',  enum: ['M','F','O'], example: 'M' },
-            fecha_nacimiento:     { type: 'string',  format: 'date',  example: '1992-05-15' },
+            correo_institucional: { type: 'string', format: 'email' },
+            contrasena:           { type: 'string', minLength: 8 },
+            nombres:              { type: 'string' },
+            apellidos:            { type: 'string' },
+            edad:                 { type: 'integer', minimum: 16 },
+            sexo:                 { type: 'string',  enum: ['M','F','O'] },
+            fecha_nacimiento:     { type: 'string',  format: 'date' },
           },
         },
 
@@ -168,18 +168,18 @@ Conecta la **app móvil** del paciente con la **plataforma web** de la nutricion
           type:     'object',
           required: ['correo_institucional', 'contrasena'],
           properties: {
-            correo_institucional: { type: 'string', format: 'email', example: 'juan.perez@decokasas.com' },
-            contrasena:           { type: 'string',                  example: 'MiClave123!' },
+            correo_institucional: { type: 'string', format: 'email' },
+            contrasena:           { type: 'string' },
           },
         },
 
         TokenPair: {
           type: 'object',
           properties: {
-            access_token:  { type: 'string', description: 'JWT con expiración de 15 minutos' },
-            refresh_token: { type: 'string', description: 'Token de refresco con expiración de 7 días' },
-            expires_in:    { type: 'integer', example: 900, description: 'Segundos hasta expiración del access token' },
-            token_type:    { type: 'string',  example: 'Bearer' },
+            access_token:  { type: 'string' },
+            refresh_token: { type: 'string' },
+            expires_in:    { type: 'integer' },
+            token_type:    { type: 'string' },
           },
         },
 
