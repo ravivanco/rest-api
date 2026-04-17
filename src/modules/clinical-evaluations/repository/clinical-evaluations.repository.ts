@@ -51,6 +51,7 @@ export const clinicalEvaluationsRepository = {
     distribucion_grasas_pct:         number;
   }): Promise<EvaluacionRow> {
 
+    const result = await pool.query<EvaluacionRow>(
       `INSERT INTO evaluaciones_clinicas (
          id_perfil, id_nutricionista, fecha_evaluacion,
          peso_kg, altura_cm, porcentaje_grasa, masa_muscular_kg,
