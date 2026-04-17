@@ -38,8 +38,6 @@ export const authRouter = Router();
  *     responses:
  *       201:
  *         description: Paciente registrado exitosamente
- *       400:
- *         $ref: '#/components/responses/ValidationError'
  */
 authRouter.post(
   '/register',
@@ -66,12 +64,6 @@ authRouter.post(
  *     responses:
  *       200:
  *         description: Login exitoso
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/TokenPair'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
  */
 authRouter.post(
   '/login',
@@ -102,8 +94,6 @@ authRouter.post(
  *     responses:
  *       200:
  *         description: Nuevos tokens emitidos
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
  */
 authRouter.post(
   '/refresh',
@@ -132,8 +122,6 @@ authRouter.post(
  *     responses:
  *       204:
  *         description: Sesión cerrada correctamente
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
  */
 authRouter.post(
   '/logout',
@@ -153,8 +141,6 @@ authRouter.post(
  *     responses:
  *       200:
  *         description: Datos del usuario
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
  */
 authRouter.get(
   '/me',
@@ -185,8 +171,6 @@ authRouter.get(
  *     responses:
  *       200:
  *         description: Contraseña actualizada
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
  */
 authRouter.patch(
   '/change-password',
