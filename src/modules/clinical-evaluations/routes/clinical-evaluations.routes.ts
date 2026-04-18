@@ -24,10 +24,14 @@ export const clinicalEvaluationsRouter = Router();
  *
  *       **Cálculos automáticos:**
  *       - **IMC** → calculado por PostgreSQL con la fórmula peso / (altura/100)²
- *       - **Calorías diarias** → calculadas con la fórmula Mifflin-St Jeor × factor de actividad
+ *       - **TMB** → calculada con la fórmula Mifflin-St Jeor
+ *       - **GET** → calculado dinámicamente como TMB × factor de actividad
+ *       - **Calorías objetivo** → GET ajustado por objetivo del paciente
+ *       - **Edad metabólica estimada** → cálculo interno del backend
  *       - **Distribución de macros** → según el objetivo del paciente
  *
  *       El paciente debe tener su formulario inicial completado.
+ *       El frontend no debe enviar `tmb_kcal` ni `edad_metabolica`.
  *     tags: [Clinical Evaluations]
  *     requestBody:
  *       required: true
@@ -42,9 +46,6 @@ export const clinicalEvaluationsRouter = Router();
  *             agua_corporal_pct: 52.1
  *             grasa_visceral: 8
  *             masa_osea_kg: 3.1
- *             tmb_kcal: 1720
- *             otros_indicadores:
- *               edad_metabolica: 30
  *             fecha_evaluacion: "2026-04-01"
  *     responses:
  *       201:
