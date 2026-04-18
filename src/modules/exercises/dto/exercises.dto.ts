@@ -51,6 +51,17 @@ export const CreateExerciseDto = z.object({
     .max(80)
     .optional()
     .nullable(),
+
+  imagen_url: z
+    .string()
+    .url('La URL de la imagen no es válida')
+    .optional()
+    .nullable(),
+
+  imagen_public_id: z
+    .string()
+    .optional()
+    .nullable(),
 });
 export type CreateExerciseDto = z.infer<typeof CreateExerciseDto>;
 

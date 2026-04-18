@@ -1,18 +1,18 @@
 import { pool } from '@database/pool';
 
 export interface AlimentoRow {
-  id_alimento:       number;
-  nombre:            string;
-  categoria:         string;
+  id_alimento: number;
+  nombre: string;
+  categoria: string;
   calorias_por_100g: number;
-  carbohidratos_g:   number;
-  proteinas_g:       number;
-  grasas_g:          number;
-  vitaminas:         string | null;
-  minerales:         string | null;
-  activo:            boolean;
-  created_at:        string;
-  updated_at:        string;
+  carbohidratos_g: number;
+  proteinas_g: number;
+  grasas_g: number;
+  vitaminas: string | null;
+  minerales: string | null;
+  activo: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export const foodsRepository = {
@@ -21,16 +21,16 @@ export const foodsRepository = {
    * Lista alimentos con filtros y paginación.
    */
   async findAll(filters: {
-    search?:    string;
+    search?: string;
     categoria?: string;
-    activo?:    string;
-    limit:      number;
-    offset:     number;
+    activo?: string;
+    limit: number;
+    offset: number;
   }): Promise<{ rows: AlimentoRow[]; total: number }> {
 
     const conditions: string[] = [];
-    const params:     unknown[] = [];
-    let   idx = 1;
+    const params: unknown[] = [];
+    let idx = 1;
 
     if (filters.search) {
       conditions.push(`nombre ILIKE $${idx++}`);
@@ -65,7 +65,7 @@ export const foodsRepository = {
     );
 
     return {
-      rows:  dataResult.rows,
+      rows: dataResult.rows,
       total: parseInt(countResult.rows[0].total),
     };
   },
@@ -81,55 +81,59 @@ export const foodsRepository = {
 
 
   async create(data: {
-    nombre:            string;
-    categoria:         string;
+    nombre: string;
+    categoria: string;
     calorias_por_100g: number;
-    carbohidratos_g:   number;
-    proteinas_g:       number;
-    grasas_g:          number;
-    vitaminas?:        string | null;
-    minerales?:        string | null;
+    carbohidratos_g: number;
+    proteinas_g: number;
+    grasas_g: number;
+    vitaminas?: string | null;
+    minerales?: string | null;
+    imagen_url?: string | null;        // ← NUEVO
+    imagen_public_id?: string | null;        // ← NUEVO
   }): Promise<AlimentoRow> {
     const result = await pool.query<AlimentoRow>(
       `INSERT INTO alimentos
-         (nombre, categoria, calorias_por_100g, carbohidratos_g,
-          proteinas_g, grasas_g, vitaminas, minerales)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING *`,
+       (nombre, categoria, calorias_por_100g, carbohidratos_g,
+        proteinas_g, grasas_g, vitaminas, minerales,
+        imagen_url, imagen_public_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     RETURNING *`,
       [
         data.nombre, data.categoria, data.calorias_por_100g,
         data.carbohidratos_g, data.proteinas_g, data.grasas_g,
         data.vitaminas ?? null, data.minerales ?? null,
+        data.imagen_url ?? null,        // ← NUEVO
+        data.imagen_public_id ?? null,  // ← NUEVO
       ],
     );
     return result.rows[0];
   },
 
-
   async update(id: number, data: Partial<{
-    nombre:            string;
-    categoria:         string;
+    nombre: string;
+    categoria: string;
     calorias_por_100g: number;
-    carbohidratos_g:   number;
-    proteinas_g:       number;
-    grasas_g:          number;
-    vitaminas:         string | null;
-    minerales:         string | null;
+    carbohidratos_g: number;
+    proteinas_g: number;
+    grasas_g: number;
+    vitaminas: string | null;
+    minerales: string | null;
   }>): Promise<AlimentoRow | null> {
 
     // Construir SET dinámico — solo actualiza los campos enviados
     const fields: string[] = [];
     const values: unknown[] = [];
-    let   idx = 1;
+    let idx = 1;
 
-    if (data.nombre            !== undefined) { fields.push(`nombre = $${idx++}`);            values.push(data.nombre); }
-    if (data.categoria         !== undefined) { fields.push(`categoria = $${idx++}`);         values.push(data.categoria); }
+    if (data.nombre !== undefined) { fields.push(`nombre = $${idx++}`); values.push(data.nombre); }
+    if (data.categoria !== undefined) { fields.push(`categoria = $${idx++}`); values.push(data.categoria); }
     if (data.calorias_por_100g !== undefined) { fields.push(`calorias_por_100g = $${idx++}`); values.push(data.calorias_por_100g); }
-    if (data.carbohidratos_g   !== undefined) { fields.push(`carbohidratos_g = $${idx++}`);   values.push(data.carbohidratos_g); }
-    if (data.proteinas_g       !== undefined) { fields.push(`proteinas_g = $${idx++}`);       values.push(data.proteinas_g); }
-    if (data.grasas_g          !== undefined) { fields.push(`grasas_g = $${idx++}`);          values.push(data.grasas_g); }
-    if (data.vitaminas         !== undefined) { fields.push(`vitaminas = $${idx++}`);         values.push(data.vitaminas); }
-    if (data.minerales         !== undefined) { fields.push(`minerales = $${idx++}`);         values.push(data.minerales); }
+    if (data.carbohidratos_g !== undefined) { fields.push(`carbohidratos_g = $${idx++}`); values.push(data.carbohidratos_g); }
+    if (data.proteinas_g !== undefined) { fields.push(`proteinas_g = $${idx++}`); values.push(data.proteinas_g); }
+    if (data.grasas_g !== undefined) { fields.push(`grasas_g = $${idx++}`); values.push(data.grasas_g); }
+    if (data.vitaminas !== undefined) { fields.push(`vitaminas = $${idx++}`); values.push(data.vitaminas); }
+    if (data.minerales !== undefined) { fields.push(`minerales = $${idx++}`); values.push(data.minerales); }
 
     if (fields.length === 0) return this.findById(id);
 

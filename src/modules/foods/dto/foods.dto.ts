@@ -54,6 +54,17 @@ export const CreateFoodDto = z.object({
     .max(300, 'Máximo 300 caracteres')
     .optional()
     .nullable(),
+
+  imagen_url: z
+    .string()
+    .url('La URL de la imagen no es válida')
+    .optional()
+    .nullable(),
+
+  imagen_public_id: z
+    .string()
+    .optional()
+    .nullable(),
 });
 export type CreateFoodDto = z.infer<typeof CreateFoodDto>;
 

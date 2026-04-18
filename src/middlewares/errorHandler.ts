@@ -86,6 +86,38 @@ export const errorHandler = (
     return;
   }
 
+  
+   // ── Error de Multer (subida de archivos) ──────────────────
+  if (err.name === 'MulterError') {
+    const multerMessages: Record<string, string> = {
+      LIMIT_FILE_SIZE:      'El archivo es demasiado grande. Máximo 5MB.',
+      LIMIT_UNEXPECTED_FILE: 'Campo de archivo inesperado. Usa el campo "image".',
+      LIMIT_FILE_COUNT:     'Solo se permite subir un archivo a la vez.',
+    };
+
+    res.status(400).json({
+      success: false,
+      error: {
+        code:    'FILE_UPLOAD_ERROR',
+        message: multerMessages[(err as NodeJS.ErrnoException).code ?? '']
+          ?? 'Error al procesar el archivo',
+      },
+    });
+    return;
+  }
+
+  // ── Error de tipo de archivo (fileFilter) ─────────────────
+  if (err.message?.includes('Tipo de archivo no permitido')) {
+    res.status(400).json({
+      success: false,
+      error: {
+        code:    'INVALID_FILE_TYPE',
+        message: err.message,
+      },
+    });
+    return;
+  }
+
   // ── Error inesperado — NUNCA exponer detalles en producción ──
   console.error('❌ Error no controlado:', {
     name:    err.name,
@@ -105,4 +137,5 @@ export const errorHandler = (
       }),
     },
   });
+
 };

@@ -18,6 +18,7 @@ import { alertsRouter }                from './modules/alerts/routes/alerts.rout
 import { dashboardRouter }             from './modules/dashboard/routes/dashboard.routes';
 import { appointmentsRouter }          from './modules/appointments/routes/appointments.routes';
 import { adminRouter }                 from './modules/admin/routes/admin.routes';
+import { uploadRouter } from './modules/upload/routes/upload.routes';
 
 const router = Router();
 
@@ -68,6 +69,7 @@ router.use('/alerts',               alertsRouter);
 router.use('/dashboard',            dashboardRouter);
 router.use('/appointments',         appointmentsRouter);
 router.use('/admin',                adminRouter);
+router.use('/upload', uploadRouter);
 
 export { router };
 // import { calorieControlRouter }      from './modules/calorie-control/routes/calorie-control.routes';

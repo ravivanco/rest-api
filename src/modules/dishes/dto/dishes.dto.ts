@@ -57,6 +57,17 @@ export const CreateDishDto = z.object({
     .array(IngredienteDto)
     .optional()
     .default([]),
+
+  imagen_url: z
+    .string()
+    .url('La URL de la imagen no es válida')
+    .optional()
+    .nullable(),
+
+  imagen_public_id: z
+    .string()
+    .optional()
+    .nullable(),
 });
 export type CreateDishDto = z.infer<typeof CreateDishDto>;
 

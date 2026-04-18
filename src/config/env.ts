@@ -6,6 +6,15 @@ dotenv.config();
  * Si una variable requerida no existe, el servidor no arranca.
  * Esto previene errores silenciosos en producción.
  */
+function getRequired(key: string): string {
+  const value = process.env[key];
+  if (!value) {
+    console.error(`\n❌ Missing required environment variable: ${key}\n`);
+    process.exit(1);
+  }
+  return value;
+}
+
 export const env = {
   NODE_ENV:   process.env.NODE_ENV   || 'development',
   PORT:       parseInt(process.env.PORT || '3000'),
@@ -31,6 +40,11 @@ export const env = {
   RATE_LIMIT_WINDOW_MS: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
   RATE_LIMIT_MAX:       parseInt(process.env.RATE_LIMIT_MAX       || '200'),
   AUTH_RATE_LIMIT_MAX:  parseInt(process.env.AUTH_RATE_LIMIT_MAX  || '5'),
+
+  // ── Cloudinary ─────────────────────────────────────────────
+  CLOUDINARY_CLOUD_NAME:   getRequired('CLOUDINARY_CLOUD_NAME'),
+  CLOUDINARY_API_KEY:      getRequired('CLOUDINARY_API_KEY'),
+  CLOUDINARY_API_SECRET:   getRequired('CLOUDINARY_API_SECRET'),
 };
 
 // Verificar variables críticas al arrancar
