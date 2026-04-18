@@ -39,9 +39,12 @@ export const clinicalEvaluationsRouter = Router();
  *             altura_cm: 175.0
  *             porcentaje_grasa: 28.4
  *             masa_muscular_kg: 35.2
+ *             agua_corporal_pct: 52.1
+ *             grasa_visceral: 8
+ *             masa_osea_kg: 3.1
+ *             tmb_kcal: 1720
  *             otros_indicadores:
- *               agua_corporal_pct: 52.1
- *               grasa_visceral: 8
+ *               edad_metabolica: 30
  *             fecha_evaluacion: "2026-04-01"
  *     responses:
  *       201:
