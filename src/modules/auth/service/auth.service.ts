@@ -4,6 +4,7 @@ import crypto         from 'crypto';
 import { env }        from '@config/env';
 import { authRepository } from '../repository/auth.repository';
 import { patientProfileRepository } from '../../patient-profile/repository/patient-profile.repository';
+import { clinicalEvaluationsRepository } from '../../clinical-evaluations/repository/clinical-evaluations.repository';
 import {
   ConflictError,
   UnauthorizedError,
@@ -138,6 +139,7 @@ export const authService = {
       alimentos_restringidos: Array<{ id_alimento: number; nombre_alimento: string }>;
       deportes: string[];
     } | null = null;
+    let evaluacion_clinica: unknown = null;
 
     if (usuario.rol === 'paciente') {
       const perfil = await authRepository.findPerfilByUserId(usuario.id_usuario);
@@ -145,12 +147,15 @@ export const authService = {
         id_perfil = perfil.id_perfil;
         formulario_completado = perfil.formulario_completado;
 
-        const [perfilBase, condiciones, preferencias, deportes] = await Promise.all([
+        const [perfilBase, condiciones, preferencias, deportes, evaluacion] = await Promise.all([
           patientProfileRepository.findByPerfilId(perfil.id_perfil),
           patientProfileRepository.findCondiciones(perfil.id_perfil),
           patientProfileRepository.findPreferencias(perfil.id_perfil),
           patientProfileRepository.findDeportes(perfil.id_perfil),
+          clinicalEvaluationsRepository.findLatestByPatient(perfil.id_perfil),
         ]);
+
+        evaluacion_clinica = evaluacion;
 
         onboarding = {
           nivel_actividad_fisica: perfilBase?.nivel_actividad_fisica ?? null,
@@ -227,6 +232,7 @@ export const authService = {
         formulario_completado,
         modulo_habilitado,
         onboarding,
+        evaluacion_clinica,
       },
     };
   },
