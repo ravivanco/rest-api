@@ -1,9 +1,8 @@
 import { clinicalEvaluationsRepository } from '../repository/clinical-evaluations.repository';
 import { patientProfileRepository }      from '../../patient-profile/repository/patient-profile.repository';
-import { calcularRequerimientoNutricional } from '@utils/calorie-calculator';
+import { NutritionCalculatorService }    from './nutrition-calculator.service';
 import { CreateEvaluationDto }           from '../dto/clinical-evaluations.dto';
 import { NotFoundError, BusinessRuleError } from '@errors/AppError';
-import { pool } from '@database/pool';
 
 export const clinicalEvaluationsService = {
 
@@ -20,49 +19,77 @@ export const clinicalEvaluationsService = {
     nutricionistaId: number,
     data: CreateEvaluationDto,
   ) {
-    // 1. Obtener perfil del paciente con sus datos completos
+    // 1. Verificar que el perfil existe
     const perfil = await patientProfileRepository.findByPerfilId(data.id_perfil);
     if (!perfil) {
       throw new NotFoundError('Perfil del paciente');
     }
 
-    // 2. Obtener datos del usuario para el cálculo (edad y sexo)
-    const usuarioResult = await pool.query<{
-      edad: number;
-      sexo: string;
-      nivel_actividad_fisica: string;
-      objetivo: string | null;
-    }>(
-      `SELECT u.edad, u.sexo,
-              pp.nivel_actividad_fisica, pp.objetivo
-       FROM   usuarios          u
-       JOIN   perfiles_paciente pp ON pp.id_usuario = u.id_usuario
-       WHERE  pp.id_perfil = $1`,
-      [data.id_perfil],
+    // 2. Obtener contexto nutricional (edad, sexo, actividad y objetivo)
+    const contextoNutricional = await patientProfileRepository.findNutritionContextByPerfilId(
+      data.id_perfil,
     );
 
-    if (!usuarioResult.rows[0]) {
+    if (!contextoNutricional) {
       throw new NotFoundError('Datos del paciente');
     }
 
-    const usuario = usuarioResult.rows[0];
-
-    // Necesita tener objetivo para calcular macros correctamente
-    if (!usuario.objetivo) {
+    if (!contextoNutricional.formulario_completado || !contextoNutricional.objetivo) {
       throw new BusinessRuleError(
-        'El paciente debe completar su formulario inicial antes de registrar una evaluación'
+        'El paciente debe completar su formulario inicial antes de registrar una evaluación',
       );
     }
 
-    // 3. Calcular calorías y distribución de macros con la fórmula TMB
-    const calculo = calcularRequerimientoNutricional({
-      peso_kg:         data.peso_kg,
-      altura_cm:       data.altura_cm,
-      edad:            usuario.edad,
-      sexo:            usuario.sexo,
-      nivel_actividad: usuario.nivel_actividad_fisica,
-      objetivo:        usuario.objetivo,
-    });
+    if (contextoNutricional.edad < 16 || contextoNutricional.edad > 99) {
+      throw new BusinessRuleError('La edad del paciente no es válida para cálculos nutricionales');
+    }
+
+    if (data.peso_kg <= 0) {
+      throw new BusinessRuleError('El peso debe ser mayor a 0');
+    }
+
+    if (data.altura_cm <= 0) {
+      throw new BusinessRuleError('La altura debe ser mayor a 0');
+    }
+
+    if (data.porcentaje_grasa < 0 || data.porcentaje_grasa > 100) {
+      throw new BusinessRuleError('El porcentaje de grasa debe estar entre 0 y 100');
+    }
+
+    // 3. Calcular indicadores nutricionales en backend
+    const tmb = NutritionCalculatorService.calcularTMB(
+      data.peso_kg,
+      data.altura_cm,
+      contextoNutricional.edad,
+      contextoNutricional.sexo,
+    );
+
+    const get = NutritionCalculatorService.calcularGET(
+      tmb,
+      contextoNutricional.nivel_actividad_fisica,
+    );
+
+    const caloriasObjetivo = NutritionCalculatorService.calcularCaloriasObjetivo(
+      get,
+      contextoNutricional.objetivo,
+    );
+
+    if (caloriasObjetivo <= 0) {
+      throw new BusinessRuleError(
+        'Las calorías objetivo calculadas no son válidas para registrar la evaluación',
+      );
+    }
+
+    const edadMetabolica = NutritionCalculatorService.calcularEdadMetabolica(
+      tmb,
+      data.porcentaje_grasa,
+      data.masa_muscular_kg,
+      contextoNutricional.edad,
+    );
+
+    const distribucionMacros = NutritionCalculatorService.calcularDistribucionMacros(
+      contextoNutricional.objetivo,
+    );
 
     // 4. Obtener la evaluación anterior para calcular diferencias
     const evaluacionAnterior = await clinicalEvaluationsRepository.findLatestByPatient(
@@ -81,12 +108,14 @@ export const clinicalEvaluationsService = {
       grasa_visceral:                  data.grasa_visceral ?? null,
       agua_corporal_pct:               data.agua_corporal_pct ?? null,
       masa_osea_kg:                    data.masa_osea_kg ?? null,
-      tmb_kcal:                        data.tmb_kcal ?? null,
-      otros_indicadores:               data.otros_indicadores ?? null,
-      calorias_diarias_calculadas:     calculo.calorias_diarias,
-      distribucion_carbohidratos_pct:  calculo.distribucion_carbohidratos_pct,
-      distribucion_proteinas_pct:      calculo.distribucion_proteinas_pct,
-      distribucion_grasas_pct:         calculo.distribucion_grasas_pct,
+      tmb_kcal:                        tmb,
+      otros_indicadores: {
+        edad_metabolica: edadMetabolica,
+      },
+      calorias_diarias_calculadas:     caloriasObjetivo,
+      distribucion_carbohidratos_pct:  distribucionMacros.distribucion_carbohidratos_pct,
+      distribucion_proteinas_pct:      distribucionMacros.distribucion_proteinas_pct,
+      distribucion_grasas_pct:         distribucionMacros.distribucion_grasas_pct,
     });
 
     // 6. Calcular diferencias vs. evaluación anterior (si existe)

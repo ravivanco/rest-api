@@ -29,6 +29,15 @@ export interface DeporteRow {
   deporte:              string;
 }
 
+export interface PerfilNutricionalContextRow {
+  id_perfil:               number;
+  edad:                    number;
+  sexo:                    string;
+  nivel_actividad_fisica:  string;
+  objetivo:                string | null;
+  formulario_completado:   boolean;
+}
+
 export const patientProfileRepository = {
 
   /**
@@ -59,6 +68,27 @@ export const patientProfileRepository = {
        WHERE  id_perfil = $1`,
       [perfilId],
     );
+    return result.rows[0] ?? null;
+  },
+
+
+  /**
+   * Contexto nutricional mínimo para cálculos clínicos automáticos.
+   */
+  async findNutritionContextByPerfilId(perfilId: number): Promise<PerfilNutricionalContextRow | null> {
+    const result = await pool.query<PerfilNutricionalContextRow>(
+      `SELECT pp.id_perfil,
+              u.edad,
+              u.sexo,
+              pp.nivel_actividad_fisica,
+              pp.objetivo,
+              pp.formulario_completado
+       FROM   perfiles_paciente pp
+       JOIN   usuarios u ON u.id_usuario = pp.id_usuario
+       WHERE  pp.id_perfil = $1`,
+      [perfilId],
+    );
+
     return result.rows[0] ?? null;
   },
 

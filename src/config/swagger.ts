@@ -157,17 +157,25 @@ const options: swaggerJsdoc.Options = {
         // ── Evaluación clínica schema ─────────────────────────────────
         CreateEvaluationRequest: {
           type:     'object',
-          required: ['id_perfil', 'peso_kg', 'altura_cm'],
+          required: [
+            'id_perfil',
+            'peso_kg',
+            'altura_cm',
+            'porcentaje_grasa',
+            'masa_muscular_kg',
+            'agua_corporal_pct',
+            'grasa_visceral',
+            'masa_osea_kg',
+          ],
           properties: {
             id_perfil:         { type: 'integer', example: 8 },
             peso_kg:           { type: 'number',  example: 84.5 },
             altura_cm:         { type: 'number',  example: 175.0 },
             porcentaje_grasa:  { type: 'number',  example: 28.4 },
             masa_muscular_kg:  { type: 'number',  example: 35.2 },
-            otros_indicadores: {
-              type: 'object',
-              example: { agua_corporal_pct: 52.1, grasa_visceral: 8 },
-            },
+            agua_corporal_pct: { type: 'number',  example: 52.1 },
+            grasa_visceral:    { type: 'number',  example: 8 },
+            masa_osea_kg:      { type: 'number',  example: 3.1 },
             fecha_evaluacion: { type: 'string', format: 'date', example: '2026-04-01' },
           },
         },
