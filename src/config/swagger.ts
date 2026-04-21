@@ -40,6 +40,7 @@ const options: swaggerJsdoc.Options = {
       { name: 'Clinical Evaluations',  description: '⚖️  Evaluaciones de bioimpedancia' },
       { name: 'Nutrition Plans',       description: '🥗 Planes nutricionales y estructura semanal' },
       { name: 'Foods',                 description: '🍎 Catálogo de alimentos' },
+      { name: 'Alimentos Detalle',     description: '🧪 Base nutricional de alimentos' },
       { name: 'Dishes',                description: '🍽️  Catálogo de platos y recetas' },
       { name: 'Exercises',             description: '🏃 Catálogo de ejercicios' },
       { name: 'Meal Tracking',         description: '✅ Seguimiento diario de comidas' },

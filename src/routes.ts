@@ -6,6 +6,7 @@ import { patientProfileRouter }        from './modules/patient-profile/routes/pa
 import { clinicalEvaluationsRouter }   from './modules/clinical-evaluations/routes/clinical-evaluations.routes';
 import { nutritionPlansRouter }        from './modules/nutrition-plans/routes/nutrition-plans.routes';
 import { foodsRouter }                 from './modules/foods/routes/foods.routes';
+import { alimentosDetalleRouter }      from './modules/alimentos-detalle/routes/alimentos-detalle.routes';
 import { dishesRouter }                from './modules/dishes/routes/dishes.routes';
 import { exercisesRouter }             from './modules/exercises/routes/exercises.routes';
 import { mealTrackingRouter }          from './modules/meal-tracking/routes/meal-tracking.routes';
@@ -57,6 +58,7 @@ router.use('/patient-profile',      patientProfileRouter);
 router.use('/clinical-evaluations', clinicalEvaluationsRouter);
 router.use('/nutrition-plans',      nutritionPlansRouter);
 router.use('/foods',                foodsRouter);
+router.use('/alimentos-detalle',    alimentosDetalleRouter);
 router.use('/dishes',               dishesRouter);
 router.use('/exercises',            exercisesRouter);
 router.use('/meal-tracking',        mealTrackingRouter);
