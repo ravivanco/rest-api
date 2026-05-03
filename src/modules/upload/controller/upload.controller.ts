@@ -115,7 +115,7 @@ export const uploadController = {
       // Viene como parámetro codificado en URL
       const publicId = decodeURIComponent(req.params.publicId as string);
 
-      const result = await cloudinary.uploader.destroy(publicId);
+      const result = await cloudinary.uploader.destroy(publicId) as { result?: string };
 
       if (result.result === 'ok') {
         ok(res, { eliminado: true }, 'Imagen eliminada correctamente');

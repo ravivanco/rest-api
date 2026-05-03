@@ -20,6 +20,9 @@ import { dashboardRouter }             from './modules/dashboard/routes/dashboar
 import { appointmentsRouter }          from './modules/appointments/routes/appointments.routes';
 import { adminRouter }                 from './modules/admin/routes/admin.routes';
 import { uploadRouter } from './modules/upload/routes/upload.routes';
+import { recipeGeneratorRouter } from './modules/recipe-generator/routes/recipe-generator.routes';
+import { menusDiariosRouter } from './modules/menus-diarios/routes/menus-diarios.routes';
+import { sugerenciasRouter } from './modules/sugerencias/routes/sugerencias.routes';
 
 const router = Router();
 
@@ -72,6 +75,9 @@ router.use('/dashboard',            dashboardRouter);
 router.use('/appointments',         appointmentsRouter);
 router.use('/admin',                adminRouter);
 router.use('/upload', uploadRouter);
+router.use('/recipe-generator', recipeGeneratorRouter);
+router.use('/menus-diarios', menusDiariosRouter);
+router.use('/sugerencias', sugerenciasRouter);
 
 export { router };
 // import { calorieControlRouter }      from './modules/calorie-control/routes/calorie-control.routes';

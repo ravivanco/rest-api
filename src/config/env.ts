@@ -45,6 +45,9 @@ export const env = {
   CLOUDINARY_CLOUD_NAME:   getRequired('CLOUDINARY_CLOUD_NAME'),
   CLOUDINARY_API_KEY:      getRequired('CLOUDINARY_API_KEY'),
   CLOUDINARY_API_SECRET:   getRequired('CLOUDINARY_API_SECRET'),
+
+  // ── OpenAI ────────────────────────────────────────────────
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
 };
 
 // Verificar variables críticas al arrancar

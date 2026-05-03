@@ -64,3 +64,10 @@ export class RateLimitError extends AppError {
     super(message, 429, 'RATE_LIMIT_EXCEEDED');
   }
 }
+
+/** 502 — Error en servicio externo */
+export class ExternalServiceError extends AppError {
+  constructor(service: string, message: string) {
+    super(`Error en servicio externo (${service}): ${message}`, 502, 'EXTERNAL_SERVICE_ERROR');
+  }
+}
