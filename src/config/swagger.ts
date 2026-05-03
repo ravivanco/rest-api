@@ -53,6 +53,9 @@ const options: swaggerJsdoc.Options = {
       { name: 'Dashboard',             description: '📱 Dashboards y métricas consolidadas' },
       { name: 'Appointments',          description: '📅 Citas nutricionales' },
       { name: 'Admin',                 description: '🛡️ Gestión administrativa de usuarios' },
+      { name: 'Recipe Generator',      description: '🍳 Generación de recetas con IA' },
+      { name: 'Menus Diarios',         description: '📋 Detalle y reemplazo de menús diarios' },
+      { name: 'Sugerencias',           description: '💡 Sugerencias automáticas de recetas' },
     ],
 
     // ── Seguridad global ───────────────────────────────────────────────────
