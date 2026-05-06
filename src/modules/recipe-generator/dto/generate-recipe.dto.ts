@@ -14,6 +14,14 @@ export interface GenerateRecipeDto {
   id_dia_plan?: number;
 }
 
+export interface GenerateGenericDto {
+  id_tiempo_comida: number;
+  tiempo_comida_nombre: TiempoComidaNombre;
+  calorias_objetivo: number;
+  restricciones?: string[];
+  categorias_preferidas?: string[];
+}
+
 export interface RecipeGptIngredient {
   id_alimento_detalle: number;
   cantidad_g: number;

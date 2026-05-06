@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { recipeGeneratorController } from '../controller/recipe-generator.controller';
 import { authenticate } from '@middlewares/authenticate';
 import { validate } from '@middlewares/validate';
-import { GenerateRecipeSchema } from '../dto/generate-recipe.validator';
+import { GenerateGenericSchema, GenerateRecipeSchema } from '../dto/generate-recipe.validator';
 
 export const recipeGeneratorRouter = Router();
 
@@ -58,6 +58,57 @@ recipeGeneratorRouter.post(
   authenticate,
   validate(GenerateRecipeSchema),
   recipeGeneratorController.generate,
+);
+
+/**
+ * @swagger
+ * /recipe-generator/generate-generic:
+ *   post:
+ *     summary: Generar receta generica con IA
+ *     description: Genera una receta sin perfil clinico y la guarda como cache reutilizable.
+ *     tags: [Recipe Generator]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [id_tiempo_comida, tiempo_comida_nombre, calorias_objetivo]
+ *             properties:
+ *               id_tiempo_comida:
+ *                 type: integer
+ *               tiempo_comida_nombre:
+ *                 type: string
+ *                 enum: [desayuno, media_manana, almuerzo, media_tarde, cena]
+ *               calorias_objetivo:
+ *                 type: integer
+ *                 minimum: 100
+ *                 maximum: 1500
+ *               restricciones:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               categorias_preferidas:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       201:
+ *         description: Receta generica generada y guardada
+ *       400:
+ *         description: Datos invalidos o calorias fuera de rango
+ *       404:
+ *         description: Tiempo de comida no encontrado
+ *       502:
+ *         description: Error en el servicio de IA
+ *       500:
+ *         description: Error interno
+ */
+recipeGeneratorRouter.post(
+  '/generate-generic',
+  authenticate,
+  validate(GenerateGenericSchema),
+  recipeGeneratorController.generateGeneric,
 );
 
 /**

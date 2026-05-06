@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { recipeGeneratorService } from '../service/recipe-generator.service';
 import { created } from '@utils/response';
-import { GenerateRecipeDto, GenerateWeekDto } from '../dto/generate-recipe.dto';
+import { GenerateGenericDto, GenerateRecipeDto, GenerateWeekDto } from '../dto/generate-recipe.dto';
 
 export const recipeGeneratorController = {
 
@@ -28,6 +28,20 @@ export const recipeGeneratorController = {
       const payload = req.body as GenerateWeekDto;
       const result = await recipeGeneratorService.generateWeekPlan(payload);
       created(res, result, 'Plan semanal generado exitosamente');
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * POST /api/recipe-generator/generate-generic
+   * Genera una receta generica con IA para catalogo.
+   */
+  async generateGeneric(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const payload = req.body as GenerateGenericDto;
+      const result = await recipeGeneratorService.generateGenericRecipe(payload);
+      created(res, result, 'Receta generica generada exitosamente');
     } catch (error) {
       next(error);
     }

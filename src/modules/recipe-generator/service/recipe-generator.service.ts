@@ -8,11 +8,13 @@ import {
 import {
   GET_ALIMENTOS_DETALLE_ALL,
   GET_ALIMENTOS_DETALLE_BY_CATEGORIAS,
+  GET_CATEGORIAS_DETALLE,
   GET_CONDICIONES,
   GET_INGREDIENTES_PLATO,
   GET_PERFIL_EVALUACION,
   GET_PREFERENCIAS,
   FIND_CACHED_PLATO,
+  FIND_CACHED_PLATO_GENERIC,
   INSERT_MENU_DIARIO,
   INSERT_PLATO,
   INSERT_PLATO_INGREDIENTE,
@@ -21,9 +23,11 @@ import {
   GET_DIAS_SEMANA,
   GET_TIEMPOS_COMIDA_ACTIVOS,
   GET_MENUS_SEMANA,
+  GET_TIEMPO_COMIDA_BY_ID,
 } from '../recipe-generator.queries';
 import {
   GenerateRecipeDto,
+  GenerateGenericDto,
   GeneratedRecipeResult,
   RecipeGptResponse,
   TiempoComidaNombre,
@@ -319,6 +323,55 @@ const buildPrompt = (params: {
   return { system, user };
 };
 
+const buildPromptGenerico = (params: {
+  tiempoComidaNombre: string;
+  caloriasObjetivo: number;
+  restricciones: string[];
+  ingredientes: AlimentoDetalleItem[];
+}): { system: string; user: string } => {
+  const ingredientesJson = toCompactIngredientsJson(params.ingredientes);
+  const restriccionesTexto = params.restricciones.length > 0
+    ? `Restricciones alimentarias: ${params.restricciones.join(', ')}`
+    : '';
+
+  const system = 'Eres un nutricionista clinico experto en recetas saludables.\n'
+    + 'Generas recetas equilibradas, practicas y apetitosas\n'
+    + 'para adultos trabajadores en Ecuador.';
+
+  const userParts = [
+    `Tiempo de comida: ${params.tiempoComidaNombre} — Calorias objetivo: ${params.caloriasObjetivo} kcal (tolerancia +/- 80 kcal)`,
+  ];
+
+  if (restriccionesTexto) {
+    userParts.push(restriccionesTexto);
+  }
+
+  userParts.push(
+    '',
+    'Ingredientes disponibles (JSON compacto):',
+    ingredientesJson,
+    '',
+    'Instrucciones:',
+    '- Receta practica para empleado de oficina.',
+    '- Usar ingredientes de supermercado ecuatoriano.',
+    '- Pasos numerados en el modo de preparacion.',
+    '- Usar SOLO ingredientes de la lista con su id exacto.',
+    '',
+    'Responde SOLO con JSON valido y sin markdown siguiendo este schema:',
+    '{',
+    '  "nombre": "string",',
+    '  "descripcion": "string | null",',
+    '  "tiempo_preparacion_min": number | null,',
+    '  "modo_preparacion": "string",',
+    '  "ingredientes": [',
+    '    { "id_alimento_detalle": number, "cantidad_g": number }',
+    '  ]',
+    '}',
+  );
+
+  return { system, user: userParts.join('\n') };
+};
+
 const parseGptResponse = (content: string): RecipeGptResponse => {
   let parsed: unknown;
   try {
@@ -360,6 +413,47 @@ const parseGptResponse = (content: string): RecipeGptResponse => {
     modo_preparacion: data.modo_preparacion.trim(),
     ingredientes: data.ingredientes as RecipeGptResponse['ingredientes'],
   };
+};
+
+const callOpenAI = async (system: string, user: string): Promise<RecipeGptResponse> => {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new AppError('OPENAI_API_KEY no definida', 500, 'INTERNAL_ERROR');
+  }
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      temperature: OPENAI_TEMPERATURE,
+      max_tokens: OPENAI_MAX_TOKENS,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new ExternalServiceError('OpenAI', `HTTP ${response.status}: ${text.slice(0, 200)}`);
+  }
+
+  const payload = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+
+  const content = payload.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new ExternalServiceError('OpenAI', 'Respuesta sin contenido');
+  }
+
+  return parseGptResponse(content);
 };
 
 const normalizeIngredientes = (
@@ -439,13 +533,58 @@ const findCachedPlato = async (
   };
 };
 
+const findCachedPlatoGeneric = async (
+  idTiempoComida: number,
+  caloriasObjetivo: number,
+): Promise<GeneratedRecipeResult | null> => {
+  const tolerancia = 80;
+
+  const result = await pool.query<CachedPlatoRow>(FIND_CACHED_PLATO_GENERIC, [
+    idTiempoComida,
+    caloriasObjetivo - tolerancia,
+    caloriasObjetivo + tolerancia,
+  ]);
+
+  if (!result.rows[0]) return null;
+
+  const plato = result.rows[0];
+
+  const ingredientesResult = await pool.query<CachedIngredienteRow>(
+    GET_INGREDIENTES_PLATO,
+    [plato.id_plato],
+  );
+
+  return {
+    id_plato: plato.id_plato,
+    nombre: plato.nombre,
+    descripcion: plato.descripcion ?? null,
+    calorias_totales: Number(plato.calorias_totales),
+    tiempo_preparacion_min: plato.tiempo_preparacion_min ?? null,
+    ingredientes: ingredientesResult.rows.map(row => ({
+      id_alimento_detalle: row.id_alimento_detalle,
+      nombre: row.nombre,
+      cantidad_g: Number(row.cantidad_g),
+      calorias_aportadas: Number(row.calorias_aportadas),
+    })),
+    guardado_en_menu: false,
+    id_menu_diario: null,
+    uso_gpt: false,
+  };
+};
+
+const assertTiempoComidaExiste = async (idTiempoComida: number): Promise<void> => {
+  const result = await pool.query<{ id_tiempo_comida: number }>(
+    GET_TIEMPO_COMIDA_BY_ID,
+    [idTiempoComida],
+  );
+
+  if (!result.rows[0]) {
+    throw new NotFoundError('Tiempo de comida');
+  }
+};
+
 export const recipeGeneratorService = {
   async generateRecipe(data: GenerateRecipeDto): Promise<GeneratedRecipeResult> {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new AppError('OPENAI_API_KEY no definida', 500, 'INTERNAL_ERROR');
-    }
-
     const perfilResult = await pool.query<PerfilEvaluacionRow>(
       GET_PERFIL_EVALUACION,
       [data.id_perfil, data.id_evaluacion],
@@ -537,39 +676,7 @@ export const recipeGeneratorService = {
       tiempoComidaNombre: data.tiempo_comida_nombre,
     });
 
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        temperature: OPENAI_TEMPERATURE,
-        max_tokens: OPENAI_MAX_TOKENS,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-      }),
-    });
-
-    if (!openaiResponse.ok) {
-      const text = await openaiResponse.text();
-      throw new ExternalServiceError('OpenAI', `HTTP ${openaiResponse.status}: ${text.slice(0, 200)}`);
-    }
-
-    const payload = (await openaiResponse.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-
-    const content = payload.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new ExternalServiceError('OpenAI', 'Respuesta sin contenido');
-    }
-
-    const gptRecipe = parseGptResponse(content);
+    const gptRecipe = await callOpenAI(system, user);
     const ingredientes = normalizeIngredientes(gptRecipe.ingredientes, alimentosMap);
 
     const ingredientesConCalorias = ingredientes.map(item => {
@@ -638,6 +745,130 @@ export const recipeGeneratorService = {
         ingredientes: ingredientesConCalorias,
         guardado_en_menu: Boolean(data.id_dia_plan),
         id_menu_diario: idMenuDiario,
+        uso_gpt: true,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+  async generateGenericRecipe(data: GenerateGenericDto): Promise<GeneratedRecipeResult> {
+    if (data.calorias_objetivo < 100 || data.calorias_objetivo > 1500) {
+      throw new ValidationError('calorias_objetivo fuera de rango (100-1500)');
+    }
+
+    await assertTiempoComidaExiste(data.id_tiempo_comida);
+
+    const cachedPlato = await findCachedPlatoGeneric(
+      data.id_tiempo_comida,
+      data.calorias_objetivo,
+    );
+
+    if (cachedPlato) {
+      return cachedPlato;
+    }
+
+    const categoriasPreferidas = data.categorias_preferidas?.filter(Boolean) ?? [];
+
+    if (categoriasPreferidas.length > 0) {
+      const categoriasResult = await pool.query<{ categoria: string }>(
+        GET_CATEGORIAS_DETALLE,
+        [categoriasPreferidas],
+      );
+
+      const categoriasValidas = new Set(categoriasResult.rows.map(row => row.categoria));
+      const categoriasInvalidas = categoriasPreferidas.filter(
+        categoria => !categoriasValidas.has(categoria),
+      );
+
+      if (categoriasInvalidas.length > 0) {
+        throw new ValidationError(`Categorias invalidas: ${categoriasInvalidas.join(', ')}`);
+      }
+    }
+
+    const alimentosDetalleResult = categoriasPreferidas.length > 0
+      ? await pool.query<AlimentoDetalleRow>(
+          GET_ALIMENTOS_DETALLE_BY_CATEGORIAS,
+          [categoriasPreferidas],
+        )
+      : await pool.query<AlimentoDetalleRow>(GET_ALIMENTOS_DETALLE_ALL);
+
+    if (alimentosDetalleResult.rows.length === 0) {
+      throw new ValidationError('Categorias preferidas invalidas o sin alimentos disponibles');
+    }
+
+    const alimentosMap = mapAlimentosDetalle(alimentosDetalleResult.rows);
+    const alimentosList = Array.from(alimentosMap.values());
+
+    const { system, user } = buildPromptGenerico({
+      tiempoComidaNombre: data.tiempo_comida_nombre,
+      caloriasObjetivo: data.calorias_objetivo,
+      restricciones: data.restricciones ?? [],
+      ingredientes: alimentosList,
+    });
+
+    const gptRecipe = await callOpenAI(system, user);
+    const ingredientes = normalizeIngredientes(gptRecipe.ingredientes, alimentosMap);
+
+    const ingredientesConCalorias = ingredientes.map(item => {
+      const alimento = alimentosMap.get(item.id_alimento_detalle)!;
+      const caloriasAportadas = Math.round((alimento.calorias * item.cantidad_g) / 100);
+      return {
+        id_alimento_detalle: item.id_alimento_detalle,
+        nombre: alimento.nombre,
+        cantidad_g: item.cantidad_g,
+        calorias_aportadas: caloriasAportadas,
+      };
+    });
+
+    const caloriasTotales = ingredientesConCalorias
+      .reduce((total, item) => total + item.calorias_aportadas, 0);
+
+    if (caloriasTotales > MAX_CALORIAS_PLATO) {
+      throw new ValidationError('Las calorias totales superan el maximo permitido');
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const platoResult = await client.query<{ id_plato: number }>(
+        INSERT_PLATO,
+        [
+          gptRecipe.nombre,
+          gptRecipe.descripcion ?? null,
+          gptRecipe.modo_preparacion,
+          null,
+          caloriasTotales,
+          gptRecipe.tiempo_preparacion_min ?? null,
+          data.id_tiempo_comida,
+        ],
+      );
+
+      const idPlato = platoResult.rows[0].id_plato;
+
+      for (const ingrediente of ingredientes) {
+        await client.query(
+          INSERT_PLATO_INGREDIENTE,
+          [idPlato, ingrediente.id_alimento_detalle, ingrediente.cantidad_g],
+        );
+      }
+
+      await client.query('COMMIT');
+
+      return {
+        id_plato: idPlato,
+        nombre: gptRecipe.nombre,
+        descripcion: gptRecipe.descripcion ?? null,
+        calorias_totales: caloriasTotales,
+        tiempo_preparacion_min: gptRecipe.tiempo_preparacion_min ?? null,
+        ingredientes: ingredientesConCalorias,
+        guardado_en_menu: false,
+        id_menu_diario: null,
         uso_gpt: true,
       };
     } catch (error) {

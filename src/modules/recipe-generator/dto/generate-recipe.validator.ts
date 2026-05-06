@@ -34,4 +34,32 @@ export const GenerateRecipeSchema = z.object({
     .optional(),
 });
 
+export const GenerateGenericSchema = z.object({
+  id_tiempo_comida: z
+    .number({ message: 'El id_tiempo_comida es requerido' })
+    .int('El id_tiempo_comida debe ser un entero')
+    .positive('El id_tiempo_comida debe ser positivo'),
+
+  tiempo_comida_nombre: z.enum(
+    ['desayuno', 'media_manana', 'almuerzo', 'media_tarde', 'cena'],
+    { message: 'El tiempo_comida_nombre es invalido' },
+  ),
+
+  calorias_objetivo: z
+    .number({ message: 'El calorias_objetivo es requerido' })
+    .int('Las calorias_objetivo deben ser un entero')
+    .min(100, 'Las calorias_objetivo deben ser al menos 100')
+    .max(1500, 'Las calorias_objetivo no deben exceder 1500'),
+
+  restricciones: z
+    .array(z.string().min(1, 'Las restricciones no pueden estar vacias'))
+    .max(10, 'Las restricciones no deben exceder 10 elementos')
+    .optional(),
+
+  categorias_preferidas: z
+    .array(z.string().min(1, 'Las categorias_preferidas no pueden estar vacias'))
+    .optional(),
+});
+
 export type GenerateRecipeInput = z.infer<typeof GenerateRecipeSchema>;
+export type GenerateGenericInput = z.infer<typeof GenerateGenericSchema>;

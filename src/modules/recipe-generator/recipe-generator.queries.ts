@@ -41,6 +41,12 @@ export const GET_ALIMENTOS_DETALLE_BY_CATEGORIAS = `
   LIMIT 120
 `;
 
+export const GET_CATEGORIAS_DETALLE = `
+  SELECT DISTINCT categoria
+  FROM alimentos_detalle
+  WHERE categoria = ANY($1::text[])
+`;
+
 export const GET_ALIMENTOS_DETALLE_ALL = `
   SELECT id_alimento_detalle, nombre, categoria, calorias, proteinas,
          carbohidratos, grasas, fibra, sodio
@@ -72,6 +78,28 @@ export const FIND_CACHED_PLATO = `
     )
   ORDER BY RANDOM()
   LIMIT 1
+`;
+
+export const FIND_CACHED_PLATO_GENERIC = `
+  SELECT
+    id_plato,
+    nombre,
+    descripcion,
+    calorias_totales,
+    tiempo_preparacion_min
+  FROM platos
+  WHERE id_tiempo_comida = $1
+    AND activo = true
+    AND generado_por_ia = true
+    AND calorias_totales BETWEEN $2 AND $3
+  ORDER BY RANDOM()
+  LIMIT 1
+`;
+
+export const GET_TIEMPO_COMIDA_BY_ID = `
+  SELECT id_tiempo_comida
+  FROM tiempos_comida
+  WHERE id_tiempo_comida = $1 AND activo = true
 `;
 
 export const GET_INGREDIENTES_PLATO = `
