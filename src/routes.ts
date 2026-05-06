@@ -23,6 +23,7 @@ import { uploadRouter } from './modules/upload/routes/upload.routes';
 import { recipeGeneratorRouter } from './modules/recipe-generator/routes/recipe-generator.routes';
 import { menusDiariosRouter } from './modules/menus-diarios/routes/menus-diarios.routes';
 import { sugerenciasRouter } from './modules/sugerencias/routes/sugerencias.routes';
+import { tiemposComidaRouter } from './modules/tiempos-comida/routes/tiempos-comida.routes';
 
 const router = Router();
 
@@ -78,6 +79,7 @@ router.use('/upload', uploadRouter);
 router.use('/recipe-generator', recipeGeneratorRouter);
 router.use('/menus-diarios', menusDiariosRouter);
 router.use('/sugerencias', sugerenciasRouter);
+router.use('/tiempos-comida', tiemposComidaRouter);
 
 export { router };
 // import { calorieControlRouter }      from './modules/calorie-control/routes/calorie-control.routes';

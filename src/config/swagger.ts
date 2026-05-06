@@ -56,6 +56,7 @@ const options: swaggerJsdoc.Options = {
       { name: 'Recipe Generator',      description: '🍳 Generación de recetas con IA' },
       { name: 'Menus Diarios',         description: '📋 Detalle y reemplazo de menús diarios' },
       { name: 'Sugerencias',           description: '💡 Sugerencias automáticas de recetas' },
+      { name: 'Tiempos Comida',         description: '🕒 Catalogo de tiempos de comida' },
     ],
 
     // ── Seguridad global ───────────────────────────────────────────────────
