@@ -305,6 +305,10 @@ const buildPrompt = (params: {
     `- ${reglasMedicas}`,
     '- No usar ingredientes restringidos ni alergenos reportados.',
     '- Preferir ingredientes favoritos cuando sea posible.',
+    '- Las cantidades de ingredientes DEBEN ser numeros enteros en gramos (g).',
+    '- Nunca uses fracciones, decimales, tazas, cucharadas u otras unidades.',
+    '- Si un ingrediente normalmente se mide en ml (aceite, leche), conviertelo a gramos (1ml ~= 1g).',
+    '- Cantidad minima: 5g. Cantidad maxima: 500g por ingrediente.',
     '- Receta practica para empleado de oficina en Ecuador.',
     '- Pasos numerados en el modo de preparacion.',
     '',
@@ -356,6 +360,10 @@ const buildPromptGenerico = (params: {
     '- Usar ingredientes de supermercado ecuatoriano.',
     '- Pasos numerados en el modo de preparacion.',
     '- Usar SOLO ingredientes de la lista con su id exacto.',
+    '- Las cantidades de ingredientes DEBEN ser numeros enteros en gramos (g).',
+    '- Nunca uses fracciones, decimales, tazas, cucharadas u otras unidades.',
+    '- Si un ingrediente normalmente se mide en ml (aceite, leche), conviertelo a gramos (1ml ~= 1g).',
+    '- Cantidad minima: 5g. Cantidad maxima: 500g por ingrediente.',
     '',
     'Responde SOLO con JSON valido y sin markdown siguiendo este schema:',
     '{',
@@ -465,28 +473,37 @@ const normalizeIngredientes = (
 
   for (const item of ingredientes) {
     const id = Number((item as { id_alimento_detalle?: number }).id_alimento_detalle);
-    const cantidad = Number((item as { cantidad_g?: number }).cantidad_g);
+    const cantidadRaw = Number((item as { cantidad_g?: number }).cantidad_g);
+    const cantidad = Math.round(cantidadRaw);
 
-    if (!Number.isFinite(id) || !alimentosMap.has(id)) {
+    if (!Number.isFinite(cantidadRaw) || cantidadRaw <= 0) {
+      console.warn(
+        `[recipe-generator] Ingrediente descartado: id=${id}, cantidad_raw=${(item as { cantidad_g?: number }).cantidad_g}`,
+      );
+      continue;
+    }
+
+    if (cantidad <= 0) {
+      console.warn(
+        `[recipe-generator] Ingrediente descartado tras redondeo: id=${id}, cantidad_raw=${cantidadRaw}`,
+      );
+      continue;
+    }
+
+    if (!alimentosMap.has(id)) {
       invalidIds.push(id);
       continue;
     }
 
-    if (!Number.isFinite(cantidad) || cantidad <= 0) {
-      throw new ExternalServiceError('OpenAI', 'Cantidad_g invalida en ingredientes');
-    }
+    normalized.push({ id_alimento_detalle: id, cantidad_g: cantidad });
+  }
 
-    normalized.push({
-      id_alimento_detalle: id,
-      cantidad_g: Math.round(cantidad),
-    });
+  if (normalized.length === 0) {
+    throw new ExternalServiceError('OpenAI', 'Ningun ingrediente valido despues de normalizar');
   }
 
   if (invalidIds.length > 0) {
-    throw new ExternalServiceError(
-      'OpenAI',
-      `IDs de ingredientes invalidos: ${invalidIds.join(', ')}`,
-    );
+    console.warn(`[recipe-generator] IDs invalidos ignorados: ${invalidIds.join(', ')}`);
   }
 
   return normalized;
