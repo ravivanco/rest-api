@@ -55,6 +55,13 @@ export const GET_ALIMENTOS_DETALLE_ALL = `
   LIMIT 100
 `;
 
+export const GET_APTITUDES_CLINICAS_BY_IDS = `
+  SELECT id_aptitud, nombre
+  FROM aptitudes_clinicas
+  WHERE id_aptitud = ANY($1::int[])
+  ORDER BY id_aptitud ASC
+`;
+
 export const FIND_CACHED_PLATO = `
   SELECT
     p.id_plato,
@@ -139,6 +146,12 @@ export const INSERT_PLATO_INGREDIENTE = `
     cantidad_g
   )
   VALUES ($1, NULL, $2, $3)
+`;
+
+export const INSERT_PLATO_APTITUD = `
+  INSERT INTO plato_aptitudes (id_plato, id_aptitud)
+  VALUES ($1, $2)
+  ON CONFLICT (id_plato, id_aptitud) DO NOTHING
 `;
 
 export const INSERT_MENU_DIARIO = `

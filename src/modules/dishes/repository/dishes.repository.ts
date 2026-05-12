@@ -16,11 +16,23 @@ export interface PlatoRow {
 export interface IngredienteRow {
   id_plato_ingrediente: number;
   id_plato:             number;
-  id_alimento:          number;
+  id_alimento?:         number | null;
+  id_alimento_detalle?: number | null;
   cantidad_g:           number;
-  nombre_alimento?:     string;
-  calorias_por_100g?:   number;
-  calorias_aportadas?:  number;  // calculado: (calorias_por_100g * cantidad_g) / 100
+  nombre?:              string;
+  calorias?:            number;
+  proteinas?:           number | null;
+  carbohidratos?:       number | null;
+  grasas?:              number | null;
+  fibra?:               number | null;
+  sodio?:               number | null;
+  calorias_aportadas?:  number;  // calculado: (calorias * cantidad_g) / 100
+}
+
+export interface AptitudRow {
+  id_aptitud: number;
+  codigo: string;
+  nombre: string;
 }
 
 export const dishesRepository = {
@@ -84,6 +96,7 @@ export const dishesRepository = {
   async findByIdWithIngredients(id: number): Promise<{
     plato:        PlatoRow;
     ingredientes: IngredienteRow[];
+    aptitudes:    AptitudRow[];
   } | null> {
 
     const platoResult = await pool.query<PlatoRow>(
@@ -93,22 +106,46 @@ export const dishesRepository = {
 
     if (!platoResult.rows[0]) return null;
 
-    const ingredientesResult = await pool.query<IngredienteRow>(
-      `SELECT pi.*,
-              a.nombre             AS nombre_alimento,
-              a.calorias_por_100g,
-              ROUND((a.calorias_por_100g::numeric * pi.cantidad_g) / 100, 0)::int
-                                   AS calorias_aportadas
-       FROM   plato_ingredientes pi
-       JOIN   alimentos           a ON a.id_alimento = pi.id_alimento
-       WHERE  pi.id_plato = $1
-       ORDER  BY a.nombre ASC`,
-      [id],
-    );
+    const [ingredientesResult, aptitudesResult] = await Promise.all([
+      pool.query<IngredienteRow>(
+        `SELECT
+           pi.id_plato_ingrediente,
+           pi.id_plato,
+           pi.cantidad_g,
+           pi.id_alimento_detalle,
+           pi.id_alimento,
+           COALESCE(ad.nombre, al.nombre) AS nombre,
+           COALESCE(ad.calorias, al.calorias_por_100g) AS calorias,
+           ad.proteinas,
+           ad.carbohidratos,
+           ad.grasas,
+           ad.fibra,
+           ad.sodio,
+           ROUND((COALESCE(ad.calorias, al.calorias_por_100g)
+             * pi.cantidad_g / 100)::numeric, 0)::integer AS calorias_aportadas
+         FROM plato_ingredientes pi
+         LEFT JOIN alimentos_detalle ad
+           ON ad.id_alimento_detalle = pi.id_alimento_detalle
+         LEFT JOIN alimentos al
+           ON al.id_alimento = pi.id_alimento
+         WHERE pi.id_plato = $1
+         ORDER BY pi.id_plato_ingrediente ASC`,
+        [id],
+      ),
+      pool.query<AptitudRow>(
+        `SELECT ac.id_aptitud, ac.codigo, ac.nombre
+         FROM plato_aptitudes pa
+         JOIN aptitudes_clinicas ac ON ac.id_aptitud = pa.id_aptitud
+         WHERE pa.id_plato = $1
+         ORDER BY ac.id_aptitud ASC`,
+        [id],
+      ),
+    ]);
 
     return {
       plato:        platoResult.rows[0],
       ingredientes: ingredientesResult.rows,
+      aptitudes:    aptitudesResult.rows,
     };
   },
 
@@ -124,6 +161,7 @@ export const dishesRepository = {
     enlace_video?:          string | null;
     tiempo_preparacion_min?: number | null;
     ingredientes:           Array<{ id_alimento: number; cantidad_g: number }>;
+    aptitudes:              number[];
   }): Promise<{ plato: PlatoRow; ingredientes: IngredienteRow[] }> {
 
     const client = await pool.connect();
@@ -173,13 +211,23 @@ export const dishesRepository = {
 
         ingredientesInsertados.push({
           ...ingResult.rows[0],
-          nombre_alimento:    alimentoResult.rows[0].nombre,
-          calorias_por_100g:  alimentoResult.rows[0].calorias_por_100g,
+          nombre:             alimentoResult.rows[0].nombre,
+          calorias:           alimentoResult.rows[0].calorias_por_100g,
           calorias_aportadas: caloriasIng,
         });
       }
 
-      // 3. Actualizar calorias_totales del plato
+      // 3. Insertar aptitudes clinicas seleccionadas
+      for (const idAptitud of data.aptitudes) {
+        await client.query(
+          `INSERT INTO plato_aptitudes (id_plato, id_aptitud)
+           VALUES ($1, $2)
+           ON CONFLICT (id_plato, id_aptitud) DO NOTHING`,
+          [plato.id_plato, idAptitud],
+        );
+      }
+
+      // 4. Actualizar calorias_totales del plato
       const platoActualizado = await client.query<PlatoRow>(
         `UPDATE platos SET calorias_totales = $1, updated_at = NOW()
          WHERE id_plato = $2 RETURNING *`,

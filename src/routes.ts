@@ -24,6 +24,7 @@ import { recipeGeneratorRouter } from './modules/recipe-generator/routes/recipe-
 import { menusDiariosRouter } from './modules/menus-diarios/routes/menus-diarios.routes';
 import { sugerenciasRouter } from './modules/sugerencias/routes/sugerencias.routes';
 import { tiemposComidaRouter } from './modules/tiempos-comida/routes/tiempos-comida.routes';
+import { aptitudesClinicasRouter } from './modules/aptitudes-clinicas/routes/aptitudes-clinicas.routes';
 
 const router = Router();
 
@@ -80,6 +81,7 @@ router.use('/recipe-generator', recipeGeneratorRouter);
 router.use('/menus-diarios', menusDiariosRouter);
 router.use('/sugerencias', sugerenciasRouter);
 router.use('/tiempos-comida', tiemposComidaRouter);
+router.use('/aptitudes-clinicas', aptitudesClinicasRouter);
 
 export { router };
 // import { calorieControlRouter }      from './modules/calorie-control/routes/calorie-control.routes';

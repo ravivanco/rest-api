@@ -8,7 +8,7 @@ import {
 import {
   GET_ALIMENTOS_DETALLE_ALL,
   GET_ALIMENTOS_DETALLE_BY_CATEGORIAS,
-  GET_CATEGORIAS_DETALLE,
+  GET_APTITUDES_CLINICAS_BY_IDS,
   GET_CONDICIONES,
   GET_INGREDIENTES_PLATO,
   GET_PERFIL_EVALUACION,
@@ -17,6 +17,7 @@ import {
   FIND_CACHED_PLATO_GENERIC,
   INSERT_MENU_DIARIO,
   INSERT_PLATO,
+  INSERT_PLATO_APTITUD,
   INSERT_PLATO_INGREDIENTE,
   GET_PLAN_CON_PERFIL,
   GET_SEMANA_DEL_PLAN,
@@ -76,6 +77,11 @@ interface AlimentoDetalleRow {
   grasas: number;
   fibra: number | null;
   sodio: number | null;
+}
+
+interface AptitudClinicaRow {
+  id_aptitud: number;
+  nombre: string;
 }
 
 interface AlimentoDetalleItem {
@@ -331,53 +337,85 @@ const buildPromptGenerico = (params: {
   tiempoComidaNombre: string;
   caloriasObjetivo: number;
   restricciones: string[];
+  aptitudes: string[];
   ingredientes: AlimentoDetalleItem[];
 }): { system: string; user: string } => {
   const ingredientesJson = toCompactIngredientsJson(params.ingredientes);
-  const restriccionesTexto = params.restricciones.length > 0
-    ? `Restricciones alimentarias: ${params.restricciones.join(', ')}`
-    : '';
 
   const system = 'Eres un nutricionista clinico experto en recetas saludables.\n'
     + 'Generas recetas equilibradas, practicas y apetitosas\n'
     + 'para adultos trabajadores en Ecuador.';
 
-  const userParts = [
-    `Tiempo de comida: ${params.tiempoComidaNombre} — Calorias objetivo: ${params.caloriasObjetivo} kcal (tolerancia +/- 80 kcal)`,
-  ];
+  const restriccionesTexto = params.restricciones.length > 0
+    ? params.restricciones.map(r => `- ${r}`).join('\n')
+    : '- Ninguna restriccion especial.';
 
-  if (restriccionesTexto) {
-    userParts.push(restriccionesTexto);
-  }
+  const aptitudesTexto = params.aptitudes.length > 0
+    ? `El plato debe ser apto para: ${params.aptitudes.join(', ')}`
+    : 'Apto para poblacion general.';
 
-  userParts.push(
+  const user = [
+    `Genera una receta REAL, coherente y apetitosa para: ${params.tiempoComidaNombre}`,
+    `Calorias objetivo: ${params.caloriasObjetivo} kcal (tolerancia +/-80 kcal)`,
     '',
-    'Ingredientes disponibles (JSON compacto):',
+    'TIPO DE PLATO ESPERADO SEGUN TIEMPO DE COMIDA:',
+    '- desayuno: avena, huevos revueltos/cocidos, tostadas, batido,',
+    '  yogur con frutas, pancakes de avena, granola.',
+    '- media_manana o media_tarde (snack): fruta, yogur, nueces,',
+    '  galletas integrales, batido pequeno.',
+    '- almuerzo: proteina principal (pollo/res/cerdo/pescado/huevo) +',
+    '  carbohidrato (arroz/papa/yuca/platano/quinoa) + vegetal/ensalada.',
+    '  Este es el plato mas completo del dia.',
+    '- cena: proteina ligera + vegetal salteado o ensalada.',
+    '  Mas ligero que el almuerzo, bajo en carbohidratos simples.',
+    '',
+    'RESTRICCIONES CRITICAS - OBLIGATORIAS:',
+    restriccionesTexto,
+    '',
+    'APTITUDES CLINICAS DEL PLATO:',
+    aptitudesTexto,
+    '',
+    'REGLAS DE COHERENCIA CULINARIA - OBLIGATORIAS:',
+    '1. Los ingredientes deben tener sentido juntos como un plato REAL.',
+    '2. Usa entre 3 y 6 ingredientes distintos. Nunca mas de 6.',
+    '3. NUNCA repitas el mismo id de ingrediente. Cada id debe aparecer UNA sola vez.',
+    '4. El almidon de yuca, fecula de maiz y similares son espesantes',
+    '   industriales. Usalos SOLO si son necesarios y maximo 15g.',
+    '5. Prioriza ingredientes reconocibles en cocina ecuatoriana:',
+    '   pollo, res, cerdo, huevo, arroz, papa, yuca, platano, tomate,',
+    '   cebolla, zanahoria, brocoli, espinaca, leche, queso, avena.',
+    '6. Las cantidades deben ser realistas para UNA porcion:',
+    '   - Proteina principal: 100-200g',
+    '   - Carbohidrato principal: 80-150g',
+    '   - Vegetales: 50-150g',
+    '   - Condimentos/aceites: 5-15g',
+    '7. TODAS las cantidades en gramos enteros. NUNCA decimales,',
+    '   tazas, cucharadas u otras unidades.',
+    '8. modo_preparacion es OBLIGATORIO. Minimo 5 pasos numerados.',
+    '   Cada paso debe ser una instruccion concreta de cocina.',
+    '   Separar cada paso con \n. Ejemplo:',
+    '   "1. Lavar y cortar el pollo en cubos.\n',
+    '    2. Calentar aceite en sarten a fuego medio.\n',
+    '    3. Saltear el pollo 8 minutos hasta dorar.\n',
+    '    4. Agregar vegetales y cocinar 5 minutos mas.\n',
+    '    5. Sazonar con sal y pimienta. Servir caliente."',
+    '',
+    'INGREDIENTES DISPONIBLES (usa SOLO estos, con su id exacto):',
     ingredientesJson,
     '',
-    'Instrucciones:',
-    '- Receta practica para empleado de oficina.',
-    '- Usar ingredientes de supermercado ecuatoriano.',
-    '- Pasos numerados en el modo de preparacion.',
-    '- Usar SOLO ingredientes de la lista con su id exacto.',
-    '- Las cantidades de ingredientes DEBEN ser numeros enteros en gramos (g).',
-    '- Nunca uses fracciones, decimales, tazas, cucharadas u otras unidades.',
-    '- Si un ingrediente normalmente se mide en ml (aceite, leche), conviertelo a gramos (1ml ~= 1g).',
-    '- Cantidad minima: 5g. Cantidad maxima: 500g por ingrediente.',
-    '',
-    'Responde SOLO con JSON valido y sin markdown siguiendo este schema:',
+    'SCHEMA JSON DE RESPUESTA - responde UNICAMENTE con este JSON:',
     '{',
-    '  "nombre": "string",',
-    '  "descripcion": "string | null",',
-    '  "tiempo_preparacion_min": number | null,',
-    '  "modo_preparacion": "string",',
+    '  "nombre": "nombre descriptivo y apetitoso del plato",',
+    '  "descripcion": "descripcion breve de maximo 120 caracteres",',
+    '  "tiempo_preparacion_min": numero entero entre 5 y 60,',
+    '  "modo_preparacion": "1. paso uno\\n2. paso dos\\n3. paso tres...",',
     '  "ingredientes": [',
-    '    { "id_alimento_detalle": number, "cantidad_g": number }',
+    '    { "id_alimento_detalle": numero, "cantidad_g": numero entero }',
     '  ]',
     '}',
-  );
+  ].join('\n');
 
-  return { system, user: userParts.join('\n') };
+  return { system, user };
 };
 
 const parseGptResponse = (content: string): RecipeGptResponse => {
@@ -788,33 +826,29 @@ export const recipeGeneratorService = {
       return cachedPlato;
     }
 
-    const categoriasPreferidas = data.categorias_preferidas?.filter(Boolean) ?? [];
+    const aptitudIds = data.aptitudes?.filter(id => Number.isFinite(id)) ?? [];
+    let aptitudesNombres: string[] = [];
 
-    if (categoriasPreferidas.length > 0) {
-      const categoriasResult = await pool.query<{ categoria: string }>(
-        GET_CATEGORIAS_DETALLE,
-        [categoriasPreferidas],
+    if (aptitudIds.length > 0) {
+      const aptitudesResult = await pool.query<AptitudClinicaRow>(
+        GET_APTITUDES_CLINICAS_BY_IDS,
+        [aptitudIds],
       );
 
-      const categoriasValidas = new Set(categoriasResult.rows.map(row => row.categoria));
-      const categoriasInvalidas = categoriasPreferidas.filter(
-        categoria => !categoriasValidas.has(categoria),
-      );
+      const idsValidos = new Set(aptitudesResult.rows.map(row => row.id_aptitud));
+      const idsInvalidos = aptitudIds.filter(id => !idsValidos.has(id));
 
-      if (categoriasInvalidas.length > 0) {
-        throw new ValidationError(`Categorias invalidas: ${categoriasInvalidas.join(', ')}`);
+      if (idsInvalidos.length > 0) {
+        throw new ValidationError(`Aptitudes invalidas: ${idsInvalidos.join(', ')}`);
       }
+
+      aptitudesNombres = aptitudesResult.rows.map(row => row.nombre);
     }
 
-    const alimentosDetalleResult = categoriasPreferidas.length > 0
-      ? await pool.query<AlimentoDetalleRow>(
-          GET_ALIMENTOS_DETALLE_BY_CATEGORIAS,
-          [categoriasPreferidas],
-        )
-      : await pool.query<AlimentoDetalleRow>(GET_ALIMENTOS_DETALLE_ALL);
+    const alimentosDetalleResult = await pool.query<AlimentoDetalleRow>(GET_ALIMENTOS_DETALLE_ALL);
 
     if (alimentosDetalleResult.rows.length === 0) {
-      throw new ValidationError('Categorias preferidas invalidas o sin alimentos disponibles');
+      throw new ValidationError('No hay alimentos disponibles para generar la receta');
     }
 
     const alimentosMap = mapAlimentosDetalle(alimentosDetalleResult.rows);
@@ -824,6 +858,7 @@ export const recipeGeneratorService = {
       tiempoComidaNombre: data.tiempo_comida_nombre,
       caloriasObjetivo: data.calorias_objetivo,
       restricciones: data.restricciones ?? [],
+      aptitudes: aptitudesNombres,
       ingredientes: alimentosList,
     });
 
@@ -872,6 +907,13 @@ export const recipeGeneratorService = {
         await client.query(
           INSERT_PLATO_INGREDIENTE,
           [idPlato, ingrediente.id_alimento_detalle, ingrediente.cantidad_g],
+        );
+      }
+
+      for (const idAptitud of aptitudIds) {
+        await client.query(
+          INSERT_PLATO_APTITUD,
+          [idPlato, idAptitud],
         );
       }
 

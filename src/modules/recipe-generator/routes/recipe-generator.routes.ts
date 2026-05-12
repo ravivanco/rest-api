@@ -88,10 +88,10 @@ recipeGeneratorRouter.post(
  *                 type: array
  *                 items:
  *                   type: string
- *               categorias_preferidas:
+ *               aptitudes:
  *                 type: array
  *                 items:
- *                   type: string
+ *                   type: integer
  *     responses:
  *       201:
  *         description: Receta generica generada y guardada

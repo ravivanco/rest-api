@@ -40,6 +40,7 @@ export const dishesService = {
       enlace_video:           data.enlace_video,
       tiempo_preparacion_min: data.tiempo_preparacion_min,
       ingredientes:           data.ingredientes ?? [],
+      aptitudes:              data.aptitudes ?? [],
     });
   },
 

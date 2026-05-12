@@ -56,8 +56,13 @@ export const GenerateGenericSchema = z.object({
     .max(10, 'Las restricciones no deben exceder 10 elementos')
     .optional(),
 
-  categorias_preferidas: z
-    .array(z.string().min(1, 'Las categorias_preferidas no pueden estar vacias'))
+  aptitudes: z
+    .array(
+      z
+        .number({ message: 'El id_aptitud es requerido' })
+        .int('El id_aptitud debe ser un entero')
+        .positive('El id_aptitud debe ser positivo'),
+    )
     .optional(),
 });
 

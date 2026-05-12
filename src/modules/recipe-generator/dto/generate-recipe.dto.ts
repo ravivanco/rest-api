@@ -19,7 +19,7 @@ export interface GenerateGenericDto {
   tiempo_comida_nombre: TiempoComidaNombre;
   calorias_objetivo: number;
   restricciones?: string[];
-  categorias_preferidas?: string[];
+  aptitudes?: number[];
 }
 
 export interface RecipeGptIngredient {

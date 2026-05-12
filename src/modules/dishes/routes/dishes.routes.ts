@@ -63,12 +63,16 @@ dishesRouter.get('/',    dishesController.list);
  *                   nombre: Ensalada de pollo
  *                   calorias_totales: 380
  *                 ingredientes:
- *                   - nombre_alimento: Pechuga de pollo
+ *                   - nombre: Pechuga de pollo
  *                     cantidad_g: 150
  *                     calorias_aportadas: 248
- *                   - nombre_alimento: Lechuga
+ *                   - nombre: Lechuga
  *                     cantidad_g: 80
  *                     calorias_aportadas: 12
+ *                 aptitudes:
+ *                   - id_aptitud: 1
+ *                     codigo: general
+ *                     nombre: Pacientes en general
  */
 dishesRouter.get('/:id', dishesController.getById);
 
@@ -95,6 +99,9 @@ dishesRouter.get('/:id', dishesController.getById);
  *                 cantidad_g: 150
  *               - id_alimento: 2
  *                 cantidad_g: 80
+ *             aptitudes:
+ *               - 1
+ *               - 2
  *     responses:
  *       201:
  *         description: Plato creado con calorías calculadas

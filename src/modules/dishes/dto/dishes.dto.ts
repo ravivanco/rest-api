@@ -58,6 +58,16 @@ export const CreateDishDto = z.object({
     .optional()
     .default([]),
 
+  aptitudes: z
+    .array(
+      z
+        .number({ message: 'El ID de la aptitud es requerido' })
+        .int()
+        .positive(),
+    )
+    .optional()
+    .default([]),
+
   imagen_url: z
     .string()
     .url('La URL de la imagen no es válida')
