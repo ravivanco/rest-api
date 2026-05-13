@@ -3,18 +3,19 @@ import { z } from 'zod';
 /**
  * DTO para un ingrediente dentro de un plato.
  */
-const IngredienteDto = z.object({
-  id_alimento: z
-    .number({ message: 'El ID del alimento es requerido' })
-    .int()
-    .positive(),
+const IngredienteDto = z.union([
+  z.object({
+    id_alimento: z.number().int().positive(),
+    id_alimento_detalle: z.undefined().optional(),
+    cantidad_g: z.number().int().min(1).max(5000),
+  }).transform(({ id_alimento_detalle: _, ...rest }) => rest),
 
-  cantidad_g: z
-    .number({ message: 'La cantidad en gramos es requerida' })
-    .int()
-    .min(1,    'La cantidad mínima es 1 gramo')
-    .max(5000, 'La cantidad máxima es 5000 gramos'),
-});
+  z.object({
+    id_alimento: z.undefined().optional(),
+    id_alimento_detalle: z.number().int().positive(),
+    cantidad_g: z.number().int().min(1).max(5000),
+  }).transform(({ id_alimento: _, ...rest }) => rest),
+]);
 
 /**
  * DTO para crear un plato con sus ingredientes.
@@ -76,6 +77,13 @@ export const CreateDishDto = z.object({
 
   imagen_public_id: z
     .string()
+    .optional()
+    .nullable(),
+  
+  id_tiempo_comida: z
+    .number()
+    .int()
+    .positive()
     .optional()
     .nullable(),
 });

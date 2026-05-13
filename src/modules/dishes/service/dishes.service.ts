@@ -7,8 +7,8 @@ export const dishesService = {
   async list(filters: {
     search?: string;
     activo?: string;
-    page:    number;
-    limit:   number;
+    page: number;
+    limit: number;
   }) {
     const offset = (filters.page - 1) * filters.limit;
     const { rows, total } = await dishesRepository.findAll({ ...filters, offset });
@@ -34,13 +34,14 @@ export const dishesService = {
     if (exists) throw new ConflictError(`El plato '${data.nombre}' ya existe`);
 
     return dishesRepository.create({
-      nombre:                 data.nombre,
-      descripcion:            data.descripcion,
-      modo_preparacion:       data.modo_preparacion,
-      enlace_video:           data.enlace_video,
+      nombre: data.nombre,
+      descripcion: data.descripcion,
+      modo_preparacion: data.modo_preparacion,
+      enlace_video: data.enlace_video,
       tiempo_preparacion_min: data.tiempo_preparacion_min,
-      ingredientes:           data.ingredientes ?? [],
-      aptitudes:              data.aptitudes ?? [],
+      id_tiempo_comida: data.id_tiempo_comida, 
+      ingredientes: data.ingredientes ?? [],
+      aptitudes: data.aptitudes ?? [],
     });
   },
 

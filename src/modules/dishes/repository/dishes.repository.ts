@@ -1,32 +1,32 @@
 import { pool } from '@database/pool';
 
 export interface PlatoRow {
-  id_plato:               number;
-  nombre:                 string;
-  descripcion:            string | null;
-  modo_preparacion:       string | null;
-  enlace_video:           string | null;
-  calorias_totales:       number;
+  id_plato: number;
+  nombre: string;
+  descripcion: string | null;
+  modo_preparacion: string | null;
+  enlace_video: string | null;
+  calorias_totales: number;
   tiempo_preparacion_min: number | null;
-  activo:                 boolean;
-  created_at:             string;
-  updated_at:             string;
+  activo: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface IngredienteRow {
   id_plato_ingrediente: number;
-  id_plato:             number;
-  id_alimento?:         number | null;
+  id_plato: number;
+  id_alimento?: number | null;
   id_alimento_detalle?: number | null;
-  cantidad_g:           number;
-  nombre?:              string;
-  calorias?:            number;
-  proteinas?:           number | null;
-  carbohidratos?:       number | null;
-  grasas?:              number | null;
-  fibra?:               number | null;
-  sodio?:               number | null;
-  calorias_aportadas?:  number;  // calculado: (calorias * cantidad_g) / 100
+  cantidad_g: number;
+  nombre?: string;
+  calorias?: number;
+  proteinas?: number | null;
+  carbohidratos?: number | null;
+  grasas?: number | null;
+  fibra?: number | null;
+  sodio?: number | null;
+  calorias_aportadas?: number;  // calculado: (calorias * cantidad_g) / 100
 }
 
 export interface AptitudRow {
@@ -40,13 +40,13 @@ export const dishesRepository = {
   async findAll(filters: {
     search?: string;
     activo?: string;
-    limit:   number;
-    offset:  number;
+    limit: number;
+    offset: number;
   }): Promise<{ rows: PlatoRow[]; total: number }> {
 
     const conditions: string[] = [];
-    const params:     unknown[] = [];
-    let   idx = 1;
+    const params: unknown[] = [];
+    let idx = 1;
 
     if (filters.search) {
       conditions.push(`nombre ILIKE $${idx++}`);
@@ -75,7 +75,7 @@ export const dishesRepository = {
     );
 
     return {
-      rows:  dataResult.rows,
+      rows: dataResult.rows,
       total: parseInt(countResult.rows[0].total),
     };
   },
@@ -94,9 +94,9 @@ export const dishesRepository = {
    * Obtiene el plato con todos sus ingredientes y calorías calculadas.
    */
   async findByIdWithIngredients(id: number): Promise<{
-    plato:        PlatoRow;
+    plato: PlatoRow;
     ingredientes: IngredienteRow[];
-    aptitudes:    AptitudRow[];
+    aptitudes: AptitudRow[];
   } | null> {
 
     const platoResult = await pool.query<PlatoRow>(
@@ -143,9 +143,9 @@ export const dishesRepository = {
     ]);
 
     return {
-      plato:        platoResult.rows[0],
+      plato: platoResult.rows[0],
       ingredientes: ingredientesResult.rows,
-      aptitudes:    aptitudesResult.rows,
+      aptitudes: aptitudesResult.rows,
     };
   },
 
@@ -155,13 +155,18 @@ export const dishesRepository = {
    * Calcula calorias_totales sumando las de los ingredientes.
    */
   async create(data: {
-    nombre:                 string;
-    descripcion?:           string | null;
-    modo_preparacion?:      string | null;
-    enlace_video?:          string | null;
+    nombre: string;
+    descripcion?: string | null;
+    modo_preparacion?: string | null;
+    enlace_video?: string | null;
     tiempo_preparacion_min?: number | null;
-    ingredientes:           Array<{ id_alimento: number; cantidad_g: number }>;
-    aptitudes:              number[];
+    ingredientes: Array<{
+      id_alimento?: number | null;
+      id_alimento_detalle?: number | null;
+      cantidad_g: number;
+    }>;
+    aptitudes: number[];
+    id_tiempo_comida?: number | null;
   }): Promise<{ plato: PlatoRow; ingredientes: IngredienteRow[] }> {
 
     const client = await pool.connect();
@@ -171,15 +176,17 @@ export const dishesRepository = {
       // 1. Crear el plato con 0 calorías inicialmente
       const platoResult = await client.query<PlatoRow>(
         `INSERT INTO platos
-           (nombre, descripcion, modo_preparacion, enlace_video, tiempo_preparacion_min)
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING *`,
+          (nombre, descripcion, modo_preparacion, enlace_video,
+            tiempo_preparacion_min, id_tiempo_comida)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *`,
         [
           data.nombre,
-          data.descripcion       ?? null,
-          data.modo_preparacion  ?? null,
-          data.enlace_video      ?? null,
+          data.descripcion ?? null,
+          data.modo_preparacion ?? null,
+          data.enlace_video ?? null,
           data.tiempo_preparacion_min ?? null,
+          data.id_tiempo_comida ?? null,
         ],
       );
       const plato = platoResult.rows[0];
@@ -189,32 +196,67 @@ export const dishesRepository = {
       const ingredientesInsertados: IngredienteRow[] = [];
 
       for (const ing of data.ingredientes) {
-        // Obtener calorías del alimento para calcular las del ingrediente
-        const alimentoResult = await client.query<{ calorias_por_100g: number; nombre: string }>(
-          `SELECT calorias_por_100g, nombre FROM alimentos WHERE id_alimento = $1`,
-          [ing.id_alimento],
-        );
 
-        if (!alimentoResult.rows[0]) continue;
+        if (ing.id_alimento_detalle) {
+          // Ingrediente de alimentos_detalle (constructor o IA)
+          const alimentoResult = await client.query<{
+            calorias: number; nombre: string;
+          }>(
+            `SELECT calorias, nombre FROM alimentos_detalle
+       WHERE id_alimento_detalle = $1`,
+            [ing.id_alimento_detalle],
+          );
+          if (!alimentoResult.rows[0]) continue;
 
-        const caloriasIng = Math.round(
-          (alimentoResult.rows[0].calorias_por_100g * ing.cantidad_g) / 100
-        );
-        caloriasTotal += caloriasIng;
+          const caloriasIng = Math.round(
+            (alimentoResult.rows[0].calorias * ing.cantidad_g) / 100
+          );
+          caloriasTotal += caloriasIng;
 
-        const ingResult = await client.query<IngredienteRow>(
-          `INSERT INTO plato_ingredientes (id_plato, id_alimento, cantidad_g)
-           VALUES ($1, $2, $3)
-           RETURNING *`,
-          [plato.id_plato, ing.id_alimento, ing.cantidad_g],
-        );
+          const ingResult = await client.query<IngredienteRow>(
+            `INSERT INTO plato_ingredientes
+         (id_plato, id_alimento_detalle, cantidad_g)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+            [plato.id_plato, ing.id_alimento_detalle, ing.cantidad_g],
+          );
+          ingredientesInsertados.push({
+            ...ingResult.rows[0],
+            nombre: alimentoResult.rows[0].nombre,
+            calorias: alimentoResult.rows[0].calorias,
+            calorias_aportadas: caloriasIng,
+          });
 
-        ingredientesInsertados.push({
-          ...ingResult.rows[0],
-          nombre:             alimentoResult.rows[0].nombre,
-          calorias:           alimentoResult.rows[0].calorias_por_100g,
-          calorias_aportadas: caloriasIng,
-        });
+        } else if (ing.id_alimento) {
+          // Ingrediente de alimentos (tabla pequeña, platos manuales legacy)
+          const alimentoResult = await client.query<{
+            calorias_por_100g: number; nombre: string;
+          }>(
+            `SELECT calorias_por_100g, nombre FROM alimentos
+       WHERE id_alimento = $1`,
+            [ing.id_alimento],
+          );
+          if (!alimentoResult.rows[0]) continue;
+
+          const caloriasIng = Math.round(
+            (alimentoResult.rows[0].calorias_por_100g * ing.cantidad_g) / 100
+          );
+          caloriasTotal += caloriasIng;
+
+          const ingResult = await client.query<IngredienteRow>(
+            `INSERT INTO plato_ingredientes
+         (id_plato, id_alimento, cantidad_g)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+            [plato.id_plato, ing.id_alimento, ing.cantidad_g],
+          );
+          ingredientesInsertados.push({
+            ...ingResult.rows[0],
+            nombre: alimentoResult.rows[0].nombre,
+            calorias: alimentoResult.rows[0].calorias_por_100g,
+            calorias_aportadas: caloriasIng,
+          });
+        }
       }
 
       // 3. Insertar aptitudes clinicas seleccionadas
@@ -237,7 +279,7 @@ export const dishesRepository = {
       await client.query('COMMIT');
 
       return {
-        plato:        platoActualizado.rows[0],
+        plato: platoActualizado.rows[0],
         ingredientes: ingredientesInsertados,
       };
 
@@ -251,21 +293,21 @@ export const dishesRepository = {
 
 
   async update(id: number, data: Partial<{
-    nombre:                 string;
-    descripcion:            string | null;
-    modo_preparacion:       string | null;
-    enlace_video:           string | null;
+    nombre: string;
+    descripcion: string | null;
+    modo_preparacion: string | null;
+    enlace_video: string | null;
     tiempo_preparacion_min: number | null;
   }>): Promise<PlatoRow | null> {
 
     const fields: string[] = [];
     const values: unknown[] = [];
-    let   idx = 1;
+    let idx = 1;
 
-    if (data.nombre                !== undefined) { fields.push(`nombre = $${idx++}`);                values.push(data.nombre); }
-    if (data.descripcion           !== undefined) { fields.push(`descripcion = $${idx++}`);           values.push(data.descripcion); }
-    if (data.modo_preparacion      !== undefined) { fields.push(`modo_preparacion = $${idx++}`);      values.push(data.modo_preparacion); }
-    if (data.enlace_video          !== undefined) { fields.push(`enlace_video = $${idx++}`);          values.push(data.enlace_video); }
+    if (data.nombre !== undefined) { fields.push(`nombre = $${idx++}`); values.push(data.nombre); }
+    if (data.descripcion !== undefined) { fields.push(`descripcion = $${idx++}`); values.push(data.descripcion); }
+    if (data.modo_preparacion !== undefined) { fields.push(`modo_preparacion = $${idx++}`); values.push(data.modo_preparacion); }
+    if (data.enlace_video !== undefined) { fields.push(`enlace_video = $${idx++}`); values.push(data.enlace_video); }
     if (data.tiempo_preparacion_min !== undefined) { fields.push(`tiempo_preparacion_min = $${idx++}`); values.push(data.tiempo_preparacion_min); }
 
     if (fields.length === 0) return this.findById(id);
@@ -296,9 +338,9 @@ export const dishesRepository = {
    * Agrega o actualiza un ingrediente en un plato y recalcula calorías totales.
    */
   async upsertIngredient(
-    platoId:    number,
+    platoId: number,
     alimentoId: number,
-    cantidadG:  number,
+    cantidadG: number,
   ): Promise<void> {
 
     const client = await pool.connect();
