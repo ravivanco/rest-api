@@ -80,4 +80,10 @@ export const dishesService = {
     await dishesRepository.removeIngredient(platoId, ingredienteId);
   },
 
+
+  async remove(id: number): Promise<void> {
+    const deleted = await dishesRepository.delete(id);
+    if (!deleted) throw new NotFoundError('Plato');
+  },
+
 };

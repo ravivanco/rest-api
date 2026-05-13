@@ -7,6 +7,9 @@ export interface PlatoRow {
   modo_preparacion: string | null;
   enlace_video: string | null;
   calorias_totales: number;
+  proteinas_totales?: number;
+  carbohidratos_totales?: number;
+  grasas_totales?: number;
   tiempo_preparacion_min: number | null;
   activo: boolean;
   created_at: string;
@@ -68,8 +71,23 @@ export const dishesRepository = {
     );
 
     const dataResult = await pool.query<PlatoRow>(
-      `SELECT * FROM platos ${where}
-       ORDER BY nombre ASC
+      `SELECT p.*,
+              macros.proteinas_totales,
+              macros.carbohidratos_totales,
+              macros.grasas_totales
+       FROM platos p
+       LEFT JOIN LATERAL (
+         SELECT
+           COALESCE(ROUND(SUM(COALESCE(ad.proteinas, 0) * pi.cantidad_g / 100)::numeric, 2), 0)::double precision AS proteinas_totales,
+           COALESCE(ROUND(SUM(COALESCE(ad.carbohidratos, 0) * pi.cantidad_g / 100)::numeric, 2), 0)::double precision AS carbohidratos_totales,
+           COALESCE(ROUND(SUM(COALESCE(ad.grasas, 0) * pi.cantidad_g / 100)::numeric, 2), 0)::double precision AS grasas_totales
+         FROM plato_ingredientes pi
+         LEFT JOIN alimentos_detalle ad
+           ON ad.id_alimento_detalle = pi.id_alimento_detalle
+         WHERE pi.id_plato = p.id_plato
+       ) macros ON TRUE
+       ${where}
+       ORDER BY p.nombre ASC
        LIMIT $${idx++} OFFSET $${idx}`,
       [...params, filters.limit, filters.offset],
     );
@@ -413,6 +431,37 @@ export const dishesRepository = {
       );
 
       await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+
+  async delete(id: number): Promise<boolean> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      await client.query(
+        `DELETE FROM plato_aptitudes WHERE id_plato = $1`,
+        [id],
+      );
+
+      await client.query(
+        `DELETE FROM plato_ingredientes WHERE id_plato = $1`,
+        [id],
+      );
+
+      const result = await client.query<{ id_plato: number }>(
+        `DELETE FROM platos WHERE id_plato = $1 RETURNING id_plato`,
+        [id],
+      );
+
+      await client.query('COMMIT');
+      return (result.rowCount ?? 0) > 0;
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

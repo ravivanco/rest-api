@@ -19,7 +19,7 @@ export const dishesRouter = Router();
  * /dishes:
  *   get:
  *     summary: Listar platos
- *     description: Lista todos los platos activos. Las calorías se calculan automáticamente de los ingredientes.
+ *     description: Lista todos los platos activos. Las calorías y macros se calculan automáticamente de los ingredientes.
  *     tags: [Dishes]
  *     security: []
  *     parameters:
@@ -127,6 +127,30 @@ dishesRouter.patch(
   authenticate,
   requireRole('nutricionista', 'administrador'),
   dishesController.setStatus,
+);
+
+/**
+ * @swagger
+ * /dishes/{id}:
+ *   delete:
+ *     summary: Eliminar un plato
+ *     tags: [Dishes]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       204:
+ *         description: Plato eliminado
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
+dishesRouter.delete(
+  '/:id',
+  authenticate,
+  requireRole('nutricionista', 'administrador'),
+  dishesController.remove,
 );
 
 /**
