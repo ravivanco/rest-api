@@ -39,12 +39,14 @@ export const alimentosDetalleRepository = {
     let idx = 1;
 
     if (filters.search) {
-      conditions.push(`nombre ILIKE $${idx++}`);
+      conditions.push(
+        `immutable_unaccent(lower(nombre)) LIKE immutable_unaccent(lower($${idx++}))`,
+      );
       params.push(`%${filters.search}%`);
     }
 
     if (filters.categoria) {
-      conditions.push(`categoria ILIKE $${idx++}`);
+      conditions.push(`categoria = $${idx++}`);
       params.push(filters.categoria);
     }
 

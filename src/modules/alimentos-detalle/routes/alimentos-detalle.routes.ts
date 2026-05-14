@@ -28,17 +28,19 @@ export const alimentosDetalleRouter = Router();
  *       - in: query
  *         name: search
  *         schema: { type: string }
- *         description: Busqueda opcional por nombre
+ *         description: Busqueda opcional por nombre (case/diacritics-insensitive)
  *       - in: query
  *         name: categoria
- *         schema: { type: string }
+ *         schema:
+ *           type: string
+ *           enum: [proteinas, carbohidratos, grasas, lacteos, frutas, vegetales, otros]
  *         description: Filtro opcional por categoria
  *       - in: query
  *         name: page
  *         schema: { type: integer, default: 1 }
  *       - in: query
  *         name: limit
- *         schema: { type: integer, default: 20, maximum: 100 }
+ *         schema: { type: integer, default: 50, maximum: 50 }
  *     responses:
  *       200:
  *         description: Lista paginada de alimentos detalle

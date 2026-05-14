@@ -58,11 +58,38 @@ export const UpdateAlimentoDetalleDto = CreateAlimentoDetalleDto.partial().refin
 
 export type UpdateAlimentoDetalleDto = z.infer<typeof UpdateAlimentoDetalleDto>;
 
+const CategoriaAlimentoDetalleEnum = z.enum([
+  'proteinas',
+  'carbohidratos',
+  'grasas',
+  'lacteos',
+  'frutas',
+  'vegetales',
+  'otros',
+]);
+
+const optionalTrimmedText = z.preprocess(
+  (value) => {
+    if (typeof value !== 'string') {
+      return value;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length === 0 ? undefined : trimmed;
+  },
+  z.string(),
+);
+
 export const ListAlimentosDetalleQueryDto = z.object({
-  search: z.string().trim().optional(),
-  categoria: z.string().trim().optional(),
+  search: optionalTrimmedText.optional(),
+  categoria: z
+    .preprocess(
+      (value) => (typeof value === 'string' ? value.trim().toLowerCase() : value),
+      CategoriaAlimentoDetalleEnum,
+    )
+    .optional(),
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(100).default(20),
+  limit: z.coerce.number().int().positive().max(50).default(50),
 });
 
 export type ListAlimentosDetalleQueryDto = z.infer<typeof ListAlimentosDetalleQueryDto>;
