@@ -58,7 +58,6 @@ export const GET_ALIMENTOS_DETALLE_ALL = `
 export const GET_CATALOGO_NOMBRES = `
   SELECT nombre
   FROM alimentos_detalle
-  WHERE activo = true
   ORDER BY categoria, nombre ASC
 `;
 
@@ -73,8 +72,7 @@ export const MATCH_INGREDIENTE_POR_NOMBRE = `
     fibra,
     sodio
   FROM alimentos_detalle
-  WHERE activo = true
-    AND LOWER(nombre) ILIKE $1
+  WHERE LOWER(nombre) ILIKE $1
   ORDER BY
     CASE WHEN LOWER(nombre) = LOWER($2) THEN 0 ELSE 1 END,
     LENGTH(nombre) ASC
