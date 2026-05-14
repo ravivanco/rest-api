@@ -19,6 +19,8 @@ import {
   INSERT_PLATO,
   INSERT_PLATO_APTITUD,
   INSERT_PLATO_INGREDIENTE,
+  MATCH_INGREDIENTE_POR_NOMBRE,
+  GET_CATALOGO_NOMBRES,
   GET_PLAN_CON_PERFIL,
   GET_SEMANA_DEL_PLAN,
   GET_DIAS_SEMANA,
@@ -30,7 +32,6 @@ import {
   GenerateRecipeDto,
   GenerateGenericDto,
   GeneratedRecipeResult,
-  RecipeGptResponse,
   TiempoComidaNombre,
   GenerateWeekDto,
   GenerateWeekResult,
@@ -42,6 +43,18 @@ const OPENAI_MODEL = 'gpt-4o-mini';
 const OPENAI_TEMPERATURE = 0.7;
 const OPENAI_MAX_TOKENS = 1200;
 const MAX_CALORIAS_PLATO = 32767;
+const MAX_INTENTOS_GPT = 3;
+
+const APTITUD_A_INSTRUCCION: Record<number, string> = {
+  1: 'apta para pacientes en general sin restricciones especiales',
+  2: 'ESTRICTAMENTE sin azucares simples, sin miel, sin mermelada, sin harinas refinadas, bajo indice glucemico — apta para diabeticos',
+  3: 'ESTRICTAMENTE baja en sodio, sin ultraprocesados, sin embutidos, sin enlatados — apta para hipertensos',
+  4: 'ESTRICTAMENTE sin gluten: sin trigo, cebada, centeno, avena (a menos que sea avena certificada sin gluten) — apta para celiacos',
+  5: 'ESTRICTAMENTE sin lactosa: sin leche, queso, yogur, mantequilla, crema — apta para intolerantes a la lactosa',
+  6: 'ESTRICTAMENTE sin carne, sin pollo, sin pescado, sin mariscos — apta para vegetarianos. Puede incluir huevo y lacteos',
+  7: 'ESTRICTAMENTE sin ningun producto de origen animal: sin carne, sin pollo, sin pescado, sin huevo, sin leche, sin queso, sin miel, sin mantequilla — apta para veganos',
+  8: 'ESTRICTAMENTE baja en proteinas (maximo 15g por porcion) y baja en sodio — apta para insuficiencia renal',
+};
 
 interface PerfilEvaluacionRow {
   id_perfil: number;
@@ -84,16 +97,49 @@ interface AptitudClinicaRow {
   nombre: string;
 }
 
-interface AlimentoDetalleItem {
+interface RecipeGptPromptIngredient {
+  nombre_ingrediente: string;
+  cantidad_g: unknown;
+}
+
+interface RecipeGptPromptResponse {
+  nombre: string;
+  descripcion: string | null;
+  tiempo_preparacion_min: number | null;
+  modo_preparacion: string;
+  ingredientes: RecipeGptPromptIngredient[];
+}
+
+interface AlimentoMatchado {
   id_alimento_detalle: number;
   nombre: string;
-  categoria: string;
   calorias: number;
   proteinas: number;
   carbohidratos: number;
   grasas: number;
   fibra: number | null;
   sodio: number | null;
+}
+
+interface IngredienteResuelto {
+  id_alimento_detalle: number;
+  nombre: string;
+  cantidad_g: number;
+  calorias_aportadas: number;
+  calorias: number;
+  proteinas: number;
+  carbohidratos: number;
+  grasas: number;
+  fibra: number | null;
+  sodio: number | null;
+}
+
+class IngredientesNoResueltosError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'IngredientesNoResueltosError';
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
 }
 
 interface CachedPlatoRow {
@@ -125,6 +171,81 @@ const normalizeText = (value: string): string =>
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
+
+const UNIDADES_A_GRAMOS: Record<string, number> = {
+  taza_arroz: 185,
+  taza_avena: 90,
+  taza_harina: 120,
+  taza_leche: 240,
+  taza_agua: 240,
+  taza_default: 150,
+  cucharada: 14,
+  cucharadita: 5,
+  huevo: 60,
+  platano: 120,
+  manzana: 180,
+};
+
+const normalizarCantidad = (cantidad: unknown): number => {
+  const numero = Number(cantidad);
+  if (Number.isFinite(numero) && numero > 0) {
+    return Math.round(numero);
+  }
+
+  if (typeof cantidad !== 'string') {
+    return 0;
+  }
+
+  const texto = cantidad.toLowerCase().trim();
+
+  const gramosMatch = texto.match(/^(\d+(?:[\.,]\d+)?)\s*(?:g|gr|gramos?)\b/);
+  if (gramosMatch) {
+    return Math.round(parseFloat(gramosMatch[1].replace(',', '.')));
+  }
+
+  const esMedia = texto.startsWith('media ');
+  const textoSinMedia = esMedia ? texto.replace(/^media\s+/, '') : texto;
+
+  if (textoSinMedia.includes('taza')) {
+    let base = UNIDADES_A_GRAMOS.taza_default;
+
+    if (textoSinMedia.includes('arroz')) {
+      base = UNIDADES_A_GRAMOS.taza_arroz;
+    } else if (textoSinMedia.includes('avena')) {
+      base = UNIDADES_A_GRAMOS.taza_avena;
+    } else if (textoSinMedia.includes('harina')) {
+      base = UNIDADES_A_GRAMOS.taza_harina;
+    } else if (textoSinMedia.includes('leche')) {
+      base = UNIDADES_A_GRAMOS.taza_leche;
+    } else if (textoSinMedia.includes('agua')) {
+      base = UNIDADES_A_GRAMOS.taza_agua;
+    }
+
+    return esMedia ? Math.round(base / 2) : base;
+  }
+
+  if (textoSinMedia.includes('cucharadita')) {
+    return esMedia ? Math.round(UNIDADES_A_GRAMOS.cucharadita / 2) : UNIDADES_A_GRAMOS.cucharadita;
+  }
+
+  if (textoSinMedia.includes('cucharada')) {
+    return esMedia ? Math.round(UNIDADES_A_GRAMOS.cucharada / 2) : UNIDADES_A_GRAMOS.cucharada;
+  }
+
+  if (textoSinMedia.includes('huevo')) {
+    return UNIDADES_A_GRAMOS.huevo;
+  }
+
+  if (textoSinMedia.includes('platano')) {
+    return UNIDADES_A_GRAMOS.platano;
+  }
+
+  if (textoSinMedia.includes('manzana')) {
+    return UNIDADES_A_GRAMOS.manzana;
+  }
+
+  return 0;
+};
 
 const getMacroDistribution = (objetivo: string | null): {
   carbs: number;
@@ -179,24 +300,6 @@ const buildMedicalRules = (condiciones: string[]): string[] => {
   return rules;
 };
 
-const mapAlimentosDetalle = (rows: AlimentoDetalleRow[]): Map<number, AlimentoDetalleItem> => {
-  const map = new Map<number, AlimentoDetalleItem>();
-  for (const row of rows) {
-    map.set(row.id_alimento_detalle, {
-      id_alimento_detalle: row.id_alimento_detalle,
-      nombre: row.nombre,
-      categoria: row.categoria,
-      calorias: Number(row.calorias),
-      proteinas: Number(row.proteinas),
-      carbohidratos: Number(row.carbohidratos),
-      grasas: Number(row.grasas),
-      fibra: row.fibra !== null ? Number(row.fibra) : null,
-      sodio: row.sodio !== null ? Number(row.sodio) : null,
-    });
-  }
-  return map;
-};
-
 const normalizePerfil = (row: PerfilEvaluacionRow): PerfilEvaluacionRow => {
   const caloriasDiarias = row.calorias_diarias_calculadas !== null
     ? Number(row.calorias_diarias_calculadas)
@@ -227,22 +330,120 @@ const normalizePerfil = (row: PerfilEvaluacionRow): PerfilEvaluacionRow => {
   };
 };
 
-const toCompactIngredientsJson = (rows: AlimentoDetalleItem[]): string => {
-  const compact = rows.map(row => {
-    const item: Record<string, number | string> = {
-      id: row.id_alimento_detalle,
-      nombre: row.nombre,
-      categoria: row.categoria,
-      cal: row.calorias,
-      prot: row.proteinas,
-      carb: row.carbohidratos,
-      gras: row.grasas,
-    };
+const matchIngrediente = async (
+  nombreGpt: string,
+): Promise<AlimentoMatchado | null> => {
+  const nombreLimpio = nombreGpt
+    .replace(/^\d+(?:[\.,]\d+)?\s*(?:g|gr|gramos?)?\s+de\s+/i, '')
+    .replace(/^(media|medio|un|una|uno|dos)\s+/i, '')
+    .trim();
 
-    return item;
-  });
+  if (!nombreLimpio) {
+    return null;
+  }
 
-  return JSON.stringify(compact);
+  const result = await pool.query<AlimentoMatchado>(
+    MATCH_INGREDIENTE_POR_NOMBRE,
+    [`%${nombreLimpio.toLowerCase()}%`, nombreLimpio],
+  );
+
+  return result.rows[0] ?? null;
+};
+
+const resolverIngredientes = async (
+  ingredientesGpt: RecipeGptPromptIngredient[],
+): Promise<IngredienteResuelto[]> => {
+  const resueltos: IngredienteResuelto[] = [];
+  const noEncontrados: string[] = [];
+  const idsUsados = new Set<number>();
+
+  for (const ingrediente of ingredientesGpt) {
+    const cantidad = normalizarCantidad(ingrediente.cantidad_g);
+
+    if (cantidad <= 0 || cantidad > 500) {
+      console.warn(
+        `[recipe-generator] Cantidad invalida: ${String(ingrediente.cantidad_g)} para "${ingrediente.nombre_ingrediente}"`,
+      );
+      noEncontrados.push(ingrediente.nombre_ingrediente);
+      continue;
+    }
+
+    const alimento = await matchIngrediente(ingrediente.nombre_ingrediente);
+
+    if (!alimento) {
+      console.warn(`[recipe-generator] Sin match: "${ingrediente.nombre_ingrediente}"`);
+      noEncontrados.push(ingrediente.nombre_ingrediente);
+      continue;
+    }
+
+    if (idsUsados.has(alimento.id_alimento_detalle)) {
+      console.warn(`[recipe-generator] Duplicado ignorado: "${ingrediente.nombre_ingrediente}"`);
+      continue;
+    }
+
+    idsUsados.add(alimento.id_alimento_detalle);
+
+    resueltos.push({
+      id_alimento_detalle: alimento.id_alimento_detalle,
+      nombre: alimento.nombre,
+      cantidad_g: cantidad,
+      calorias_aportadas: Math.round((Number(alimento.calorias) * cantidad) / 100),
+      calorias: Number(alimento.calorias),
+      proteinas: Number(alimento.proteinas),
+      carbohidratos: Number(alimento.carbohidratos),
+      grasas: Number(alimento.grasas),
+      fibra: alimento.fibra !== null ? Number(alimento.fibra) : null,
+      sodio: alimento.sodio !== null ? Number(alimento.sodio) : null,
+    });
+  }
+
+  const totalGpt = ingredientesGpt.length;
+  const totalResueltos = resueltos.length;
+  const porcentajeExito = totalGpt > 0 ? totalResueltos / totalGpt : 0;
+
+  if (totalResueltos === 0 || porcentajeExito < 0.5) {
+    throw new IngredientesNoResueltosError(
+      `Solo ${totalResueltos}/${totalGpt} ingredientes encontrados: sin match para [${noEncontrados.join(', ')}]`,
+    );
+  }
+
+  return resueltos;
+};
+
+const generarRecetaConReintentos = async (
+  buildPromptFn: () => { system: string; user: string },
+): Promise<{
+  gptRecipe: RecipeGptPromptResponse;
+  ingredientesResueltos: IngredienteResuelto[];
+}> => {
+  for (let intentoActual = 1; intentoActual <= MAX_INTENTOS_GPT; intentoActual++) {
+    console.log(`[recipe-generator] Intento ${intentoActual}/${MAX_INTENTOS_GPT}`);
+
+    try {
+      const { system, user } = buildPromptFn();
+      const gptRecipe = await callOpenAI(system, user);
+      const ingredientesResueltos = await resolverIngredientes(gptRecipe.ingredientes);
+
+      return { gptRecipe, ingredientesResueltos };
+    } catch (error) {
+      if (error instanceof IngredientesNoResueltosError) {
+        console.warn(`[recipe-generator] Reintentando: ${error.message}`);
+
+        if (intentoActual >= MAX_INTENTOS_GPT) {
+          throw new ExternalServiceError(
+            'OpenAI',
+            `No se pudo generar una receta valida despues de ${MAX_INTENTOS_GPT} intentos`,
+          );
+        }
+
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw new ExternalServiceError('OpenAI', 'Error inesperado en generacion');
 };
 
 const buildPrompt = (params: {
@@ -250,7 +451,7 @@ const buildPrompt = (params: {
   condiciones: string[];
   alimentosPreferidos: string[];
   alimentosRestringidos: string[];
-  ingredientes: AlimentoDetalleItem[];
+  catalogoNombres: string[];
   caloriasObjetivo: number;
   tiempoComidaNombre: TiempoComidaNombre;
 }): { system: string; user: string } => {
@@ -281,7 +482,9 @@ const buildPrompt = (params: {
     ? `Condiciones especiales: ${rules.join('; ')}.`
     : 'Condiciones especiales: ninguna.';
 
-  const ingredientesJson = toCompactIngredientsJson(params.ingredientes);
+  const catalogoTexto = params.catalogoNombres.length > 0
+    ? params.catalogoNombres.join('\n')
+    : '- Sin catalogo disponible.';
 
   const system = 'Eres un nutricionista clinico experto en recetas personalizadas.';
 
@@ -304,28 +507,41 @@ const buildPrompt = (params: {
     '',
     `Tiempo de comida actual: ${params.tiempoComidaNombre}`,
     '',
-    'Ingredientes disponibles (JSON compacto):',
-    ingredientesJson,
+    'CATALOGO DE INGREDIENTES DISPONIBLES:',
+    'Usa SOLO ingredientes cuyos nombres aparezcan en esta lista.',
+    'Si un ingrediente que necesitas no esta, usa el mas similar disponible.',
+    catalogoTexto,
     '',
     'Instrucciones:',
     `- ${reglasMedicas}`,
     '- No usar ingredientes restringidos ni alergenos reportados.',
     '- Preferir ingredientes favoritos cuando sea posible.',
-    '- Las cantidades de ingredientes DEBEN ser numeros enteros en gramos (g).',
-    '- Nunca uses fracciones, decimales, tazas, cucharadas u otras unidades.',
-    '- Si un ingrediente normalmente se mide en ml (aceite, leche), conviertelo a gramos (1ml ~= 1g).',
-    '- Cantidad minima: 5g. Cantidad maxima: 500g por ingrediente.',
+    'REGLAS DE CANTIDADES - OBLIGATORIAS:',
+    '- cantidad_g SIEMPRE debe ser un numero entero en gramos.',
+    '- NUNCA uses decimales, fracciones, tazas, cucharadas u otras unidades.',
+    '- Convierte mentalmente antes de responder:',
+    '  * 1 taza de arroz = 185g',
+    '  * 1 taza de avena = 90g',
+    '  * 1 cucharada de aceite = 14g',
+    '  * 1 cucharadita = 5g',
+    '  * 1 huevo grande = 60g',
+    '  * media taza = la mitad de la taza correspondiente',
+    '- Cantidades minimas: 5g. Maximas: 500g por ingrediente.',
+    '- USA SOLO nombres de ingredientes que aparezcan en el CATALOGO.',
     '- Receta practica para empleado de oficina en Ecuador.',
     '- Pasos numerados en el modo de preparacion.',
     '',
-    'Responde SOLO con JSON valido y sin markdown siguiendo este schema:',
+    'Responde SOLO con JSON valido sin markdown siguiendo EXACTAMENTE este schema:',
     '{',
-    '  "nombre": "string",',
-    '  "descripcion": "string | null",',
-    '  "tiempo_preparacion_min": number | null,',
-    '  "modo_preparacion": "string",',
+    '  "nombre": "nombre descriptivo y apetitoso del plato",',
+    '  "descripcion": "descripcion breve max 120 caracteres",',
+    '  "tiempo_preparacion_min": numero entero entre 5 y 60,',
+    '  "modo_preparacion": "1. paso\\n2. paso\\n3. paso...",',
     '  "ingredientes": [',
-    '    { "id_alimento_detalle": number, "cantidad_g": number }',
+    '    {',
+    '      "nombre_ingrediente": "nombre simple del ingrediente",',
+    '      "cantidad_g": numero entero en gramos',
+    '    }',
     '  ]',
     '}',
   ].join('\n');
@@ -337,10 +553,16 @@ const buildPromptGenerico = (params: {
   tiempoComidaNombre: string;
   caloriasObjetivo: number;
   restricciones: string[];
-  aptitudes: string[];
-  ingredientes: AlimentoDetalleItem[];
+  aptitudes: number[];
+  catalogoNombres: string[];
 }): { system: string; user: string } => {
-  const ingredientesJson = toCompactIngredientsJson(params.ingredientes);
+  const catalogoTexto = params.catalogoNombres.length > 0
+    ? params.catalogoNombres.join('\n')
+    : '- Sin catalogo disponible.';
+
+  const instruccionesAptitud = params.aptitudes
+    .map(id => APTITUD_A_INSTRUCCION[id])
+    .filter((instruccion): instruccion is string => Boolean(instruccion));
 
   const system = 'Eres un nutricionista clinico experto en recetas saludables.\n'
     + 'Generas recetas equilibradas, practicas y apetitosas\n'
@@ -349,10 +571,6 @@ const buildPromptGenerico = (params: {
   const restriccionesTexto = params.restricciones.length > 0
     ? params.restricciones.map(r => `- ${r}`).join('\n')
     : '- Ninguna restriccion especial.';
-
-  const aptitudesTexto = params.aptitudes.length > 0
-    ? `El plato debe ser apto para: ${params.aptitudes.join(', ')}`
-    : 'Apto para poblacion general.';
 
   const user = [
     `Genera una receta REAL, coherente y apetitosa para: ${params.tiempoComidaNombre}`,
@@ -372,45 +590,56 @@ const buildPromptGenerico = (params: {
     'RESTRICCIONES CRITICAS - OBLIGATORIAS:',
     restriccionesTexto,
     '',
-    'APTITUDES CLINICAS DEL PLATO:',
-    aptitudesTexto,
+    'APTITUDES CLINICAS - RESTRICCIONES ABSOLUTAS E INNEGOCIABLES:',
+    instruccionesAptitud.length > 0
+      ? instruccionesAptitud.map(instruccion => `- ${instruccion}`).join('\n')
+      : '- Apta para poblacion general sin restricciones especiales',
+    'COMPROBAR ANTES DE RESPONDER: Revisa cada ingrediente que propones y verifica que no viole ninguna restriccion anterior. Si un ingrediente viola una restriccion, NO lo incluyas.',
+    '',
+    'CATALOGO DE INGREDIENTES DISPONIBLES:',
+    'Usa SOLO ingredientes cuyos nombres aparezcan en esta lista.',
+    'Si un ingrediente que necesitas no esta, usa el mas similar disponible.',
+    catalogoTexto,
     '',
     'REGLAS DE COHERENCIA CULINARIA - OBLIGATORIAS:',
     '1. Los ingredientes deben tener sentido juntos como un plato REAL.',
     '2. Usa entre 3 y 6 ingredientes distintos. Nunca mas de 6.',
-    '3. NUNCA repitas el mismo id de ingrediente. Cada id debe aparecer UNA sola vez.',
-    '4. El almidon de yuca, fecula de maiz y similares son espesantes',
-    '   industriales. Usalos SOLO si son necesarios y maximo 15g.',
-    '5. Prioriza ingredientes reconocibles en cocina ecuatoriana:',
-    '   pollo, res, cerdo, huevo, arroz, papa, yuca, platano, tomate,',
-    '   cebolla, zanahoria, brocoli, espinaca, leche, queso, avena.',
-    '6. Las cantidades deben ser realistas para UNA porcion:',
+    '3. El almidon de yuca, fecula de maiz y similares son espesantes industriales. Usalos SOLO si son necesarios y maximo 15g.',
+    '4. Prioriza ingredientes reconocibles en cocina ecuatoriana: pollo, res, cerdo, huevo, arroz, papa, yuca, platano, tomate, cebolla, zanahoria, brocoli, espinaca, leche, queso, avena.',
+    '5. Las cantidades deben ser realistas para UNA porcion:',
     '   - Proteina principal: 100-200g',
     '   - Carbohidrato principal: 80-150g',
     '   - Vegetales: 50-150g',
     '   - Condimentos/aceites: 5-15g',
-    '7. TODAS las cantidades en gramos enteros. NUNCA decimales,',
-    '   tazas, cucharadas u otras unidades.',
-    '8. modo_preparacion es OBLIGATORIO. Minimo 5 pasos numerados.',
+    '6. TODAS las cantidades en gramos enteros. NUNCA decimales, tazas, cucharadas u otras unidades.',
+    '7. modo_preparacion es OBLIGATORIO. Minimo 5 pasos numerados.',
     '   Cada paso debe ser una instruccion concreta de cocina.',
     '   Separar cada paso con \n. Ejemplo:',
-    '   "1. Lavar y cortar el pollo en cubos.\n',
-    '    2. Calentar aceite en sarten a fuego medio.\n',
-    '    3. Saltear el pollo 8 minutos hasta dorar.\n',
-    '    4. Agregar vegetales y cocinar 5 minutos mas.\n',
-    '    5. Sazonar con sal y pimienta. Servir caliente."',
+    '   "1. Lavar y cortar el pollo en cubos.\n2. Calentar aceite en sarten a fuego medio.\n3. Saltear el pollo 8 minutos hasta dorar.\n4. Agregar vegetales y cocinar 5 minutos mas.\n5. Sazonar con sal y pimienta. Servir caliente."',
+    'REGLAS DE CANTIDADES - OBLIGATORIAS:',
+    '- cantidad_g SIEMPRE debe ser un numero entero en gramos.',
+    '- NUNCA uses decimales, fracciones, tazas, cucharadas u otras unidades.',
+    '- Convierte mentalmente antes de responder:',
+    '  * 1 taza de arroz = 185g',
+    '  * 1 taza de avena = 90g',
+    '  * 1 cucharada de aceite = 14g',
+    '  * 1 cucharadita = 5g',
+    '  * 1 huevo grande = 60g',
+    '  * media taza = la mitad de la taza correspondiente',
+    '- Cantidades minimas: 5g. Maximas: 500g por ingrediente.',
+    '- USA SOLO nombres de ingredientes que aparezcan en el CATALOGO.',
     '',
-    'INGREDIENTES DISPONIBLES (usa SOLO estos, con su id exacto):',
-    ingredientesJson,
-    '',
-    'SCHEMA JSON DE RESPUESTA - responde UNICAMENTE con este JSON:',
+    'Responde SOLO con JSON valido sin markdown siguiendo EXACTAMENTE este schema:',
     '{',
     '  "nombre": "nombre descriptivo y apetitoso del plato",',
-    '  "descripcion": "descripcion breve de maximo 120 caracteres",',
+    '  "descripcion": "descripcion breve max 120 caracteres",',
     '  "tiempo_preparacion_min": numero entero entre 5 y 60,',
     '  "modo_preparacion": "1. paso uno\\n2. paso dos\\n3. paso tres...",',
     '  "ingredientes": [',
-    '    { "id_alimento_detalle": numero, "cantidad_g": numero entero }',
+    '    {',
+    '      "nombre_ingrediente": "nombre simple del ingrediente",',
+    '      "cantidad_g": numero entero en gramos',
+    '    }',
     '  ]',
     '}',
   ].join('\n');
@@ -418,7 +647,7 @@ const buildPromptGenerico = (params: {
   return { system, user };
 };
 
-const parseGptResponse = (content: string): RecipeGptResponse => {
+const parseGptResponse = (content: string): RecipeGptPromptResponse => {
   let parsed: unknown;
   try {
     parsed = JSON.parse(content);
@@ -430,7 +659,7 @@ const parseGptResponse = (content: string): RecipeGptResponse => {
     throw new ExternalServiceError('OpenAI', 'Respuesta JSON invalida');
   }
 
-  const data = parsed as Partial<RecipeGptResponse>;
+  const data = parsed as Partial<RecipeGptPromptResponse>;
 
   if (!data.nombre || typeof data.nombre !== 'string' || data.nombre.trim().length === 0) {
     throw new ExternalServiceError('OpenAI', 'Respuesta sin nombre de receta');
@@ -445,6 +674,12 @@ const parseGptResponse = (content: string): RecipeGptResponse => {
     throw new ExternalServiceError('OpenAI', 'Respuesta sin ingredientes');
   }
 
+  for (const ingrediente of data.ingredientes) {
+    if (!ingrediente || typeof ingrediente !== 'object') {
+      throw new ExternalServiceError('OpenAI', 'Respuesta con ingrediente invalido');
+    }
+  }
+
   const tiempoPreparacion =
     typeof data.tiempo_preparacion_min === 'number' && Number.isFinite(data.tiempo_preparacion_min)
       ? Math.round(data.tiempo_preparacion_min)
@@ -457,11 +692,11 @@ const parseGptResponse = (content: string): RecipeGptResponse => {
       ? tiempoPreparacion
       : null,
     modo_preparacion: data.modo_preparacion.trim(),
-    ingredientes: data.ingredientes as RecipeGptResponse['ingredientes'],
+    ingredientes: data.ingredientes as RecipeGptPromptIngredient[],
   };
 };
 
-const callOpenAI = async (system: string, user: string): Promise<RecipeGptResponse> => {
+const callOpenAI = async (system: string, user: string): Promise<RecipeGptPromptResponse> => {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new AppError('OPENAI_API_KEY no definida', 500, 'INTERNAL_ERROR');
@@ -500,51 +735,6 @@ const callOpenAI = async (system: string, user: string): Promise<RecipeGptRespon
   }
 
   return parseGptResponse(content);
-};
-
-const normalizeIngredientes = (
-  ingredientes: RecipeGptResponse['ingredientes'],
-  alimentosMap: Map<number, AlimentoDetalleItem>,
-): Array<{ id_alimento_detalle: number; cantidad_g: number }> => {
-  const invalidIds: number[] = [];
-  const normalized: Array<{ id_alimento_detalle: number; cantidad_g: number }> = [];
-
-  for (const item of ingredientes) {
-    const id = Number((item as { id_alimento_detalle?: number }).id_alimento_detalle);
-    const cantidadRaw = Number((item as { cantidad_g?: number }).cantidad_g);
-    const cantidad = Math.round(cantidadRaw);
-
-    if (!Number.isFinite(cantidadRaw) || cantidadRaw <= 0) {
-      console.warn(
-        `[recipe-generator] Ingrediente descartado: id=${id}, cantidad_raw=${(item as { cantidad_g?: number }).cantidad_g}`,
-      );
-      continue;
-    }
-
-    if (cantidad <= 0) {
-      console.warn(
-        `[recipe-generator] Ingrediente descartado tras redondeo: id=${id}, cantidad_raw=${cantidadRaw}`,
-      );
-      continue;
-    }
-
-    if (!alimentosMap.has(id)) {
-      invalidIds.push(id);
-      continue;
-    }
-
-    normalized.push({ id_alimento_detalle: id, cantidad_g: cantidad });
-  }
-
-  if (normalized.length === 0) {
-    throw new ExternalServiceError('OpenAI', 'Ningun ingrediente valido despues de normalizar');
-  }
-
-  if (invalidIds.length > 0) {
-    console.warn(`[recipe-generator] IDs invalidos ignorados: ${invalidIds.join(', ')}`);
-  }
-
-  return normalized;
 };
 
 const findCachedPlato = async (
@@ -684,8 +874,7 @@ export const recipeGeneratorService = {
       throw new ValidationError('No hay alimentos disponibles para generar la receta');
     }
 
-    const alimentosMap = mapAlimentosDetalle(alimentosDetalleResult.rows);
-    const alimentosList = Array.from(alimentosMap.values());
+    const catalogoNombres = alimentosDetalleResult.rows.map(row => row.nombre);
 
     let caloriasObjetivo = data.calorias_objetivo;
     if (!caloriasObjetivo) {
@@ -721,29 +910,22 @@ export const recipeGeneratorService = {
       return cachedPlato;
     }
 
-    const { system, user } = buildPrompt({
+    const { gptRecipe, ingredientesResueltos } = await generarRecetaConReintentos(() => buildPrompt({
       perfil,
       condiciones,
       alimentosPreferidos,
       alimentosRestringidos,
-      ingredientes: alimentosList,
+      catalogoNombres,
       caloriasObjetivo,
       tiempoComidaNombre: data.tiempo_comida_nombre,
-    });
+    }));
 
-    const gptRecipe = await callOpenAI(system, user);
-    const ingredientes = normalizeIngredientes(gptRecipe.ingredientes, alimentosMap);
-
-    const ingredientesConCalorias = ingredientes.map(item => {
-      const alimento = alimentosMap.get(item.id_alimento_detalle)!;
-      const caloriasAportadas = Math.round((alimento.calorias * item.cantidad_g) / 100);
-      return {
-        id_alimento_detalle: item.id_alimento_detalle,
-        nombre: alimento.nombre,
-        cantidad_g: item.cantidad_g,
-        calorias_aportadas: caloriasAportadas,
-      };
-    });
+    const ingredientesConCalorias = ingredientesResueltos.map(item => ({
+      id_alimento_detalle: item.id_alimento_detalle,
+      nombre: item.nombre,
+      cantidad_g: item.cantidad_g,
+      calorias_aportadas: item.calorias_aportadas,
+    }));
 
     const caloriasTotales = ingredientesConCalorias
       .reduce((total, item) => total + item.calorias_aportadas, 0);
@@ -774,7 +956,7 @@ export const recipeGeneratorService = {
 
       const idPlato = platoResult.rows[0].id_plato;
 
-      for (const ingrediente of ingredientes) {
+      for (const ingrediente of ingredientesResueltos) {
         await client.query(
           INSERT_PLATO_INGREDIENTE,
           [idPlato, ingrediente.id_alimento_detalle, ingrediente.cantidad_g],
@@ -827,7 +1009,6 @@ export const recipeGeneratorService = {
     }
 
     const aptitudIds = data.aptitudes?.filter(id => Number.isFinite(id)) ?? [];
-    let aptitudesNombres: string[] = [];
 
     if (aptitudIds.length > 0) {
       const aptitudesResult = await pool.query<AptitudClinicaRow>(
@@ -841,40 +1022,30 @@ export const recipeGeneratorService = {
       if (idsInvalidos.length > 0) {
         throw new ValidationError(`Aptitudes invalidas: ${idsInvalidos.join(', ')}`);
       }
-
-      aptitudesNombres = aptitudesResult.rows.map(row => row.nombre);
     }
 
-    const alimentosDetalleResult = await pool.query<AlimentoDetalleRow>(GET_ALIMENTOS_DETALLE_ALL);
+    const catalogoResult = await pool.query<{ nombre: string }>(GET_CATALOGO_NOMBRES);
 
-    if (alimentosDetalleResult.rows.length === 0) {
+    if (catalogoResult.rows.length === 0) {
       throw new ValidationError('No hay alimentos disponibles para generar la receta');
     }
 
-    const alimentosMap = mapAlimentosDetalle(alimentosDetalleResult.rows);
-    const alimentosList = Array.from(alimentosMap.values());
+    const catalogoNombres = catalogoResult.rows.map(row => row.nombre);
 
-    const { system, user } = buildPromptGenerico({
+    const { gptRecipe, ingredientesResueltos } = await generarRecetaConReintentos(() => buildPromptGenerico({
       tiempoComidaNombre: data.tiempo_comida_nombre,
       caloriasObjetivo: data.calorias_objetivo,
       restricciones: data.restricciones ?? [],
-      aptitudes: aptitudesNombres,
-      ingredientes: alimentosList,
-    });
+      aptitudes: aptitudIds,
+      catalogoNombres,
+    }));
 
-    const gptRecipe = await callOpenAI(system, user);
-    const ingredientes = normalizeIngredientes(gptRecipe.ingredientes, alimentosMap);
-
-    const ingredientesConCalorias = ingredientes.map(item => {
-      const alimento = alimentosMap.get(item.id_alimento_detalle)!;
-      const caloriasAportadas = Math.round((alimento.calorias * item.cantidad_g) / 100);
-      return {
-        id_alimento_detalle: item.id_alimento_detalle,
-        nombre: alimento.nombre,
-        cantidad_g: item.cantidad_g,
-        calorias_aportadas: caloriasAportadas,
-      };
-    });
+    const ingredientesConCalorias = ingredientesResueltos.map(item => ({
+      id_alimento_detalle: item.id_alimento_detalle,
+      nombre: item.nombre,
+      cantidad_g: item.cantidad_g,
+      calorias_aportadas: item.calorias_aportadas,
+    }));
 
     const caloriasTotales = ingredientesConCalorias
       .reduce((total, item) => total + item.calorias_aportadas, 0);
@@ -903,7 +1074,7 @@ export const recipeGeneratorService = {
 
       const idPlato = platoResult.rows[0].id_plato;
 
-      for (const ingrediente of ingredientes) {
+      for (const ingrediente of ingredientesResueltos) {
         await client.query(
           INSERT_PLATO_INGREDIENTE,
           [idPlato, ingrediente.id_alimento_detalle, ingrediente.cantidad_g],

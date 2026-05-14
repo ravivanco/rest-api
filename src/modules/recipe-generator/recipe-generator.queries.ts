@@ -55,6 +55,32 @@ export const GET_ALIMENTOS_DETALLE_ALL = `
   LIMIT 100
 `;
 
+export const GET_CATALOGO_NOMBRES = `
+  SELECT nombre
+  FROM alimentos_detalle
+  WHERE activo = true
+  ORDER BY categoria, nombre ASC
+`;
+
+export const MATCH_INGREDIENTE_POR_NOMBRE = `
+  SELECT
+    id_alimento_detalle,
+    nombre,
+    calorias,
+    proteinas,
+    carbohidratos,
+    grasas,
+    fibra,
+    sodio
+  FROM alimentos_detalle
+  WHERE activo = true
+    AND LOWER(nombre) ILIKE $1
+  ORDER BY
+    CASE WHEN LOWER(nombre) = LOWER($2) THEN 0 ELSE 1 END,
+    LENGTH(nombre) ASC
+  LIMIT 1
+`;
+
 export const GET_APTITUDES_CLINICAS_BY_IDS = `
   SELECT id_aptitud, nombre
   FROM aptitudes_clinicas
