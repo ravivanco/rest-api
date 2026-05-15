@@ -2,6 +2,10 @@ import { Request, Response, NextFunction } from 'express';
 import cloudinary                          from '@config/cloudinary';
 import { ok }                              from '@utils/response';
 import { BusinessRuleError }               from '@errors/AppError';
+import {
+  estimateFromDescription,
+  estimateFromImage,
+} from '@infrastructure/calorie-estimator';
 
 /**
  * Interface para archivos de Multer con Cloudinary.
@@ -93,11 +97,18 @@ export const uploadController = {
       }
 
       const file = req.file as CloudinaryFile;
+      const descripcion = String(req.body?.descripcion_alimento || '').trim();
+
+      let estimacion = await estimateFromImage(file.path, descripcion);
+      if (!estimacion.calorias_estimadas && descripcion.length > 0) {
+        estimacion = await estimateFromDescription(descripcion);
+      }
 
       ok(res, {
         url:       file.path,
         public_id: file.filename,
         mensaje:   'Foto del consumo subida correctamente',
+        estimacion,
       });
 
     } catch (error) { next(error); }

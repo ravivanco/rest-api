@@ -122,6 +122,10 @@ uploadRouter.post(
  *     description: |
  *       El paciente sube una foto de lo que comió fuera del plan.
  *       La URL retornada se usa en POST /api/additional-intake como imagen_url.
+ *       Además, este endpoint intenta calcular calorías automáticamente con Cloud Vision.
+ *
+ *       Puedes enviar `descripcion_alimento` como contexto (prompt textual) para mejorar
+ *       la estimación cuando la imagen no sea suficientemente clara.
  *     tags: [Upload]
  *     requestBody:
  *       content:
@@ -132,9 +136,25 @@ uploadRouter.post(
  *               image:
  *                 type: string
  *                 format: binary
+ *               descripcion_alimento:
+ *                 type: string
+ *                 example: "Arroz con pollo y ensalada"
  *     responses:
  *       200:
- *         description: URL de la foto del consumo
+ *         description: URL de la foto del consumo y estimación calórica
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 url: "https://res.cloudinary.com/ddegmlh4o/image/upload/v1/dkfitt/consumo_adicional/abc123.jpg"
+ *                 public_id: "dkfitt/consumo_adicional/abc123"
+ *                 mensaje: "Foto del consumo subida correctamente"
+ *                 estimacion:
+ *                   calorias_estimadas: 650
+ *                   fuente_estimacion: ia_vision
+ *                   confianza_pct: 60
+ *                   mensaje: "Estimación basada en etiquetas OCR y descripción. Verifica antes de confirmar."
  */
 uploadRouter.post(
   '/intake-image',

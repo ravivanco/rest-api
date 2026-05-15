@@ -42,9 +42,9 @@ export const env = {
   AUTH_RATE_LIMIT_MAX:  parseInt(process.env.AUTH_RATE_LIMIT_MAX  || '5'),
 
   // ── Cloudinary ─────────────────────────────────────────────
-  CLOUDINARY_CLOUD_NAME:   getRequired('CLOUDINARY_CLOUD_NAME'),
-  CLOUDINARY_API_KEY:      getRequired('CLOUDINARY_API_KEY'),
-  CLOUDINARY_API_SECRET:   getRequired('CLOUDINARY_API_SECRET'),
+  CLOUDINARY_CLOUD_NAME:   process.env.CLOUDINARY_CLOUD_NAME || '',
+  CLOUDINARY_API_KEY:      process.env.CLOUDINARY_API_KEY || '',
+  CLOUDINARY_API_SECRET:   process.env.CLOUDINARY_API_SECRET || '',
 
   // ── OpenAI ────────────────────────────────────────────────
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
@@ -59,4 +59,14 @@ if (missing.length > 0) {
   missing.forEach(key => console.error(`   • ${key}`));
   console.error('\nRevisa tu archivo .env\n');
   process.exit(1);
+}
+
+const cloudinaryMissing = [
+  'CLOUDINARY_CLOUD_NAME',
+  'CLOUDINARY_API_KEY',
+  'CLOUDINARY_API_SECRET',
+].filter(key => !process.env[key]);
+
+if (cloudinaryMissing.length > 0) {
+  console.warn('\n⚠️ Cloudinary no está configurado. Los endpoints de subida de imágenes fallarán hasta agregar las variables.\n');
 }
