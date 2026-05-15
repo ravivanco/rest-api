@@ -1,12 +1,12 @@
-import { visionClient }          from '@config/vision';
+import { visionClient }       from '@config/vision';
 import {
   estimateFromDescription,
   estimateFromImage,
-}                                from '@infrastructure/calorie-estimator';
+}                             from '@infrastructure/calorie-estimator';
 import {
   AnalyzeImageDto,
   ImageCaloriesResult,
-}                                from '../dto/analyze-image.dto';
+}                             from '../dto/analyze-image.dto';
 
 export const imageCalorieAnalyzerService = {
 
@@ -16,10 +16,26 @@ export const imageCalorieAnalyzerService = {
     let labels:  string[] = [];
     let ocrText: string   = '';
 
-    // ── Llamar a Google Vision con manejo de error ────────────────
+    // ── Llamar a Google Vision ────────────────────────────────────
     try {
-      const [labelResp] = await visionClient.labelDetection(data.imagen_url);
-      const [textResp]  = await visionClient.textDetection(data.imagen_url);
+      let visionInput: string | { content: string };
+
+      if (data.imagen_base64) {
+        // Extraer solo la parte base64 sin el prefijo "data:image/jpeg;base64,"
+        const base64Data = data.imagen_base64.includes(',')
+          ? data.imagen_base64.split(',')[1]
+          : data.imagen_base64;
+
+        // Google Vision acepta base64 directamente con el campo "content"
+        visionInput = { content: base64Data };
+      } else if (data.imagen_url) {
+        visionInput = data.imagen_url;
+      } else {
+        throw new Error('No se proporcionó imagen');
+      }
+
+      const [labelResp] = await visionClient.labelDetection(visionInput as string);
+      const [textResp]  = await visionClient.textDetection(visionInput as string);
 
       labels = (labelResp.labelAnnotations || [])
         .map((l: { description?: string | null }) =>
@@ -29,32 +45,34 @@ export const imageCalorieAnalyzerService = {
 
       ocrText = (textResp.textAnnotations?.[0]?.description || '').trim();
 
-      console.log('[vision] Labels detectados:', labels.join(', '));
-      console.log('[vision] OCR detectado:', ocrText.slice(0, 100));
+      console.log('[vision] Labels:', labels.join(', '));
 
     } catch (visionError: unknown) {
-      // Vision falló — seguimos con la estimación por descripción
       const msg = visionError instanceof Error
         ? visionError.message
         : String(visionError);
-      console.error('[vision] Error al llamar Google Vision:', msg);
+      console.error('[vision] Error Google Vision:', msg);
     }
 
     // ── Estimar calorías ──────────────────────────────────────────
-
-    // Si Vision detectó etiquetas, intentar estimación por imagen
     let resultado = null;
 
-    if (labels.length > 0 || ocrText) {
-      resultado = await estimateFromImage(data.imagen_url, descripcion);
+    // Combinar labels + OCR + descripción para la estimación
+    const contexto = [labels.join(' '), ocrText, descripcion]
+      .filter(Boolean)
+      .join(' ');
+
+    if (contexto.trim()) {
+      resultado = await estimateFromImage(
+        data.imagen_url || '',
+        contexto,
+      );
     }
 
-    // Si no hay resultado o Vision falló, usar descripción de texto
     if (!resultado?.calorias_estimadas && descripcion) {
       resultado = await estimateFromDescription(descripcion);
     }
 
-    // Si tampoco hay resultado, retornar pendiente
     if (!resultado) {
       resultado = {
         calorias_estimadas: null,
