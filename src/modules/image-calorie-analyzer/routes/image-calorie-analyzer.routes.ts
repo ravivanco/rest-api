@@ -19,6 +19,9 @@ export const imageCalorieAnalyzerRouter = Router();
  * /image-calorie-analyzer/analyze:
  *   post:
  *     summary: Analizar imagen y estimar calorias
+ *     description: |
+ *       El cliente puede enviar `imagen_base64` si la foto se toma desde la app móvil,
+ *       o `imagen_url` si ya existe una URL pública (por ejemplo desde Cloudinary).
  *     tags: [Image Calorie Analyzer]
  *     requestBody:
  *       required: true
@@ -26,8 +29,14 @@ export const imageCalorieAnalyzerRouter = Router();
  *         application/json:
  *           schema:
  *             type: object
- *             required: [imagen_url]
+ *             oneOf:
+ *               - required: [imagen_base64]
+ *               - required: [imagen_url]
  *             properties:
+ *               imagen_base64:
+ *                 type: string
+ *                 description: Base64 de la imagen o data URL desde la app móvil
+ *                 example: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/..."
  *               imagen_url:
  *                 type: string
  *                 example: "https://res.cloudinary.com/demo/image/upload/sample.jpg"

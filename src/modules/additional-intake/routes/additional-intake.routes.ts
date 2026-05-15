@@ -33,6 +33,8 @@ export const additionalIntakeRouter = Router();
  *
  *       **imagen_url:** La app móvil debe subir la imagen primero a su storage
  *       (Firebase Storage, AWS S3, Cloudinary) y enviar aquí la URL resultante.
+ *       También puede enviar `imagen_base64` para analizar la foto tomada desde la app
+ *       sin guardar aún en Cloudinary.
  *     tags: [Additional Intake]
  *     requestBody:
  *       required: true
@@ -48,6 +50,9 @@ export const additionalIntakeRouter = Router();
  *               imagen_url:
  *                 type: string
  *                 example: "https://storage.ejemplo.com/foto-hamburguesa.jpg"
+ *               imagen_base64:
+ *                 type: string
+ *                 example: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/..."
  *               calorias_estimadas:
  *                 type: integer
  *                 example: 850

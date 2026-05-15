@@ -56,12 +56,18 @@ export const AnalyzeAdditionalIntakeDto = z.object({
     .url('El enlace de la imagen debe ser una URL válida')
     .optional()
     .nullable(),
+
+  imagen_base64: z
+    .string()
+    .min(100, 'imagen_base64 no parece válida')
+    .optional()
+    .nullable(),
 })
 .superRefine((data, ctx) => {
-  if (!data.descripcion_alimento && !data.imagen_url) {
+  if (!data.descripcion_alimento && !data.imagen_url && !data.imagen_base64) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'Debes enviar al menos una descripción o una imagen_url para analizar',
+      message: 'Debes enviar al menos una descripción, imagen_url o imagen_base64 para analizar',
       path: ['descripcion_alimento'],
     });
   }

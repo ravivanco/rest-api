@@ -12,8 +12,9 @@ export interface ImageCaloriesResult {
   calorias_estimadas:   number | null;
   confianza_pct:        number | null;
   porcion_estimada_g:   number | null;
-  fuente_estimacion:    'manual' | 'ia_vision' | 'pendiente';
+  fuente_estimacion:    'manual' | 'ia_vision' | 'heuristica' | 'pendiente';
   etiquetas_detectadas: string[];
   texto_detectado:      string | null;
   mensaje:              string;
+  imagen_url?:          string | null;
 }

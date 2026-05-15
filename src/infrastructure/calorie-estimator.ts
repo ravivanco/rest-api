@@ -2,26 +2,65 @@ import { visionClient } from '@config/vision';
 
 export interface CalorieEstimationResult {
   calorias_estimadas: number | null;
-  fuente_estimacion: 'manual' | 'ia_vision' | 'pendiente';
+  fuente_estimacion: 'manual' | 'ia_vision' | 'heuristica' | 'pendiente';
   confianza_pct: number | null;
   mensaje: string;
+  etiquetas_detectadas?: string[];
+  texto_detectado?: string | null;
+}
+
+export type ImageSource = string | { url?: string; base64?: string };
+
+type VisionInput = string | Buffer;
+
+function buildVisionInput(imageSource: ImageSource): VisionInput {
+  if (typeof imageSource === 'string') {
+    return imageSource;
+  }
+
+  if (imageSource.base64) {
+    const base64Data = imageSource.base64.includes(',')
+      ? imageSource.base64.split(',')[1]
+      : imageSource.base64;
+
+    return Buffer.from(base64Data, 'base64');
+  }
+
+  if (imageSource.url) {
+    return imageSource.url;
+  }
+
+  throw new Error('Debes enviar una URL o un base64 válido');
+}
+
+async function extractVisionContext(imageSource: ImageSource): Promise<{
+  labels: string[];
+  ocrText: string;
+}> {
+  const visionInput = buildVisionInput(imageSource);
+
+  const [labelResp] = await visionClient.labelDetection(visionInput as never);
+  const [textResp] = await visionClient.textDetection(visionInput as never);
+
+  const labels = (labelResp.labelAnnotations || [])
+    .map((label: { description?: string | null }) =>
+      (label.description || '').toLowerCase(),
+    )
+    .filter(Boolean);
+
+  const ocrText = (textResp.textAnnotations && textResp.textAnnotations[0])
+    ? (textResp.textAnnotations[0].description || '').toLowerCase()
+    : '';
+
+  return { labels, ocrText };
 }
 
 export const estimateFromImage = async (
-  imageUrl: string,
+  imageSource: ImageSource,
   descripcion: string,
 ): Promise<CalorieEstimationResult> => {
   try {
-    // Usar labelDetection y textDetection
-    const [labelResp] = await visionClient.labelDetection(imageUrl);
-    const [textResp]  = await visionClient.textDetection(imageUrl);
-
-    const labels = (labelResp.labelAnnotations || []).map((label: { description?: string | null }) =>
-      (label.description || '').toLowerCase(),
-    );
-    const ocrText = (textResp.textAnnotations && textResp.textAnnotations[0])
-      ? (textResp.textAnnotations[0].description || '').toLowerCase()
-      : '';
+    const { labels, ocrText } = await extractVisionContext(imageSource);
 
     const combined = `${labels.join(' ')} ${ocrText} ${descripcion}`.toLowerCase();
 
@@ -44,6 +83,8 @@ export const estimateFromImage = async (
         fuente_estimacion: 'ia_vision',
         confianza_pct: 60,
         mensaje: 'Estimación basada en etiquetas OCR y descripción. Verifica antes de confirmar.',
+        etiquetas_detectadas: labels,
+        texto_detectado: ocrText || null,
       };
     }
 
@@ -52,6 +93,8 @@ export const estimateFromImage = async (
       fuente_estimacion: 'pendiente',
       confianza_pct: null,
       mensaje: 'No se encontró una estimación fiable desde la imagen.',
+      etiquetas_detectadas: labels,
+      texto_detectado: ocrText || null,
     };
 
   } catch (err: any) {
@@ -60,6 +103,8 @@ export const estimateFromImage = async (
       fuente_estimacion: 'pendiente',
       confianza_pct: null,
       mensaje: `Error al procesar la imagen: ${String(err.message || err)}`,
+      etiquetas_detectadas: [],
+      texto_detectado: null,
     };
   }
 };
@@ -104,9 +149,11 @@ export const estimateFromDescription = async (
   if (caloriasEncontradas !== null) {
     return {
       calorias_estimadas:  caloriasEncontradas,
-      fuente_estimacion:   'ia_vision',
+      fuente_estimacion:   'heuristica',
       confianza_pct:       40, // baja confianza — solo por palabras clave
       mensaje: `Estimación basada en la descripción. Ajusta si es necesario antes de confirmar.`,
+      etiquetas_detectadas: [descripcionLower],
+      texto_detectado: descripcionLower,
     };
   }
 
@@ -115,5 +162,7 @@ export const estimateFromDescription = async (
     fuente_estimacion:   'pendiente',
     confianza_pct:       null,
     mensaje: 'No se pudo estimar automáticamente. Ingresa las calorías manualmente.',
+    etiquetas_detectadas: [],
+    texto_detectado: null,
   };
 };

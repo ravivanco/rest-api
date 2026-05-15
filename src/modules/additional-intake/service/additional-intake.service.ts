@@ -98,13 +98,17 @@ export const additionalIntakeService = {
   ) {
 
     const descripcion = data.descripcion_alimento ?? '';
-    let estimacion = null;
+    const imageSource = data.imagen_base64
+      ? { base64: data.imagen_base64 }
+      : data.imagen_url
+        ? { url: data.imagen_url }
+        : null;
 
-    if (data.imagen_url) {
-      estimacion = await estimateFromImage(data.imagen_url, descripcion);
-    }
+    let estimacion = imageSource
+      ? await estimateFromImage(imageSource, descripcion)
+      : null;
 
-    if (!estimacion || !estimacion.calorias_estimadas) {
+    if (!estimacion?.calorias_estimadas) {
       estimacion = await estimateFromDescription(descripcion);
     }
 
