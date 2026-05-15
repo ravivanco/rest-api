@@ -39,7 +39,7 @@ import {
   MenuDiarioSlot,
 } from '../dto/generate-recipe.dto';
 
-const OPENAI_MODEL = 'gpt-4o-mini';
+const OPENAI_MODEL = 'gpt-4o';
 const OPENAI_TEMPERATURE = 0.7;
 const OPENAI_MAX_TOKENS = 1200;
 const MAX_CALORIAS_PLATO = 32767;
@@ -633,6 +633,15 @@ const buildPromptGenerico = (params: {
     '    Ejemplo: no puedes decir solo "aceite" debes ser mas claron en el ingrediente que se usara: "aceite de olvia", "aceite de girasol".',
     '11. Si el catalogo no tiene exactamente lo que necesitas, usa el ingrediente mas similar.',
     '    Ejemplo: si necesitas "granola en barra" y el catalogo tiene "Granola", usa "Granola".',
+    'REGLAS DE COHERENCIA DE PLATO - CRITICAS:',
+    '- Cada receta debe ser UN SOLO PLATO coherente, no varios platos mezclados.',
+    '- EJEMPLO:',
+    '- desayuno dulce (avena, granola, yogur): NO mezclar con huevos fritos ni ingredientes salados.',
+    '- desayuno proteico (huevos): NO mezclar con frutas dulces encima ni cereales. Lo mismo para los demas tiempos de comida: cada receta debe tener sentido como un plato unico.',
+    '- Si usas un ingrediente en especifico, DEBE aparecer en la preparacion. Si no lo usas en la preparacion, NO lo incluyas en los ingredientes.',
+    '- TODOS los ingredientes listados deben usarse en la preparacion, sin excepcion.',
+    '- La preparacion debe ser para los ingredientes exactos listados, no para ingredientes imaginarios.',
+    '- Antes de responder, verifica: ¿cada ingrediente del JSON aparece en el modo_preparacion? Si no, eliminalo.',
     'REGLAS DE CANTIDADES - OBLIGATORIAS:',
     '- cantidad_g SIEMPRE debe ser un numero entero en gramos.',
     '- NUNCA uses decimales, fracciones, tazas, cucharadas u otras unidades.',

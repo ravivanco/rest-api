@@ -1,25 +1,3 @@
-/**
- * Servicio de estimación calórica desacoplado.
- *
- * ESTADO ACTUAL: Implementación base que retorna null.
- * El paciente ingresa las calorías manualmente.
- *
- * INTEGRACIÓN FUTURA:
- * Para conectar a una API de visión artificial (ej: OpenAI Vision, Google Vision AI):
- * 1. Reemplaza el cuerpo de estimateFromImage()
- * 2. Agrega las credenciales en .env
- * 3. El resto del sistema no necesita cambios
- *
- * Ejemplo de integración futura:
- *   const response = await openai.chat.completions.create({
- *     model: "gpt-4-vision-preview",
- *     messages: [{ role: "user", content: [
- *       { type: "image_url", image_url: { url: imageUrl } },
- *       { type: "text", text: "Estima las calorías de este alimento en kcal. Solo el número." }
- *     ]}]
- *   });
- *   return parseInt(response.choices[0].message.content ?? '0');
- */
 
 export interface CalorieEstimationResult {
   calorias_estimadas:     number | null;
