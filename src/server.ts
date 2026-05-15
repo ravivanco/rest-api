@@ -15,7 +15,19 @@ import { checkDatabaseConnection } from '@database/pool';
 async function bootstrap(): Promise<void> {
 
   // Paso 1: Verificar conexión a BD antes de aceptar peticiones
-  await checkDatabaseConnection();
+  try {
+    await checkDatabaseConnection();
+  } catch (error) {
+    const requireDbOnBoot = process.env.REQUIRE_DB_ON_BOOT === 'true';
+    const message = error instanceof Error ? error.message : String(error);
+
+    if (requireDbOnBoot) {
+      throw new Error(`No se pudo conectar a PostgreSQL al iniciar: ${message}`);
+    }
+
+    console.warn('⚠️ Iniciando en modo degradado: PostgreSQL no disponible al arranque.');
+    console.warn('   Ajusta DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD o define REQUIRE_DB_ON_BOOT=true para bloquear el arranque.');
+  }
 
   // Paso 2: Crear la aplicación con todos los middlewares y rutas
   const app = createApp();

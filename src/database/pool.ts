@@ -48,7 +48,7 @@ export const checkDatabaseConnection = async (): Promise<void> => {
     const message = error instanceof Error ? error.message : String(error);
     console.error('❌ Error conectando a PostgreSQL:', message);
     console.error('   Verifica DB_HOST, DB_PORT, DB_NAME, DB_USER y DB_PASSWORD en .env');
-    process.exit(1);
+    throw new Error(message);
   } finally {
     client?.release();
   }
