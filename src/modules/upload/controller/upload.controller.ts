@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import cloudinary                          from '@config/cloudinary';
+import { env }                             from '@config/env';
 import { ok }                              from '@utils/response';
 import { BusinessRuleError }               from '@errors/AppError';
 import {
@@ -17,6 +18,37 @@ interface CloudinaryFile extends Express.Multer.File {
 }
 
 export const uploadController = {
+
+  /**
+   * POST /api/upload/cloudinary/sign
+   * Devuelve la firma necesaria para que la app móvil haga un upload firmado a Cloudinary.
+   * Body (opcional): { folder?: string }
+   */
+  async cloudinarySign(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!env.CLOUDINARY_CLOUD_NAME) {
+        throw new BusinessRuleError('Cloudinary no está configurado en el servidor');
+      }
+
+      const folder = String(req.body?.folder || 'dkfitt/consumo_adicional/temp');
+      const timestamp = Math.floor(Date.now() / 1000);
+
+      // firmar los parámetros esenciales
+      const paramsToSign: Record<string, any> = { timestamp, folder };
+      // cloudinary.utils.api_sign_request está disponible en la v2
+      // pero en algunas instalaciones puede requerir pasar explicitamente la API secret
+      // Usamos el util que expone el SDK
+      // @ts-ignore - utils may not be typed in ambient declarations
+      const signature = (cloudinary as any).utils.api_sign_request(paramsToSign, process.env.CLOUDINARY_API_SECRET || '');
+
+      ok(res, {
+        api_key: process.env.CLOUDINARY_API_KEY || '',
+        timestamp,
+        signature,
+        folder,
+      });
+    } catch (error) { next(error); }
+  },
 
   /**
    * POST /api/upload/food-image

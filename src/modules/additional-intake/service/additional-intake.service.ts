@@ -1,4 +1,5 @@
 import { additionalIntakeRepository } from '../repository/additional-intake.repository';
+import cloudinary from '@config/cloudinary';
 import { calorieControlRepository }   from '../../calorie-control/repository/calorie-control.repository';
 import { estimateFromDescription, estimateFromImage } from '../../../infrastructure/calorie-estimator';
 import {
@@ -167,6 +168,35 @@ export const additionalIntakeService = {
     }
 
     // 1. Confirmar el consumo con las calorías finales
+    // Si la imagen existe y está en carpeta temporal, intentamos moverla a la carpeta permanente
+    if (consumo.imagen_url) {
+      try {
+        // Extraer public_id desde la URL de Cloudinary
+        const match = consumo.imagen_url.match(/\/image\/upload\/(?:v\d+\/)?(.+)\.(jpg|jpeg|png|webp)$/i);
+        if (match && match[1]) {
+          const publicId = match[1];
+          // Si el publicId contiene '/temp/', lo movemos
+          if (publicId.includes('/temp/')) {
+            const newPublicId = publicId.replace('/temp/', '/');
+            // Renombrar en Cloudinary
+            await (cloudinary as any).uploader.rename(publicId, newPublicId, { invalidate: true });
+            // Construir nueva URL segura
+            const newUrl = (cloudinary as any).url(newPublicId, { secure: true });
+            // Actualizar la URL en la BD antes de confirmar
+            await pool.query(
+              `UPDATE consumos_adicionales SET imagen_url = $1, updated_at = NOW() WHERE id_consumo_adicional = $2`,
+              [newUrl, consumoId],
+            );
+            consumo.imagen_url = newUrl;
+          }
+        }
+      } catch (err) {
+        // Loguear pero no bloquear la confirmación
+        // eslint-disable-next-line no-console
+        console.error('[additional-intake] Error moviendo imagen en Cloudinary:', err);
+      }
+    }
+
     const consumoConfirmado = await additionalIntakeRepository.confirm(
       consumoId,
       data.calorias_estimadas,

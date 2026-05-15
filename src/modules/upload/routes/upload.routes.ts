@@ -166,6 +166,32 @@ uploadRouter.post(
 
 /**
  * @swagger
+ * /upload/cloudinary/sign:
+ *   post:
+ *     summary: Obtener firma para hacer upload firmado a Cloudinary
+ *     tags: [Upload]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               folder:
+ *                 type: string
+ *                 example: "dkfitt/consumo_adicional/temp"
+ *     responses:
+ *       200:
+ *         description: Firma y parámetros para subir a Cloudinary desde el cliente
+ */
+uploadRouter.post(
+  '/cloudinary/sign',
+  authenticate,
+  requireRole('paciente'),
+  uploadController.cloudinarySign,
+);
+
+/**
+ * @swagger
  * /upload/image/{publicId}:
  *   delete:
  *     summary: Eliminar imagen de Cloudinary

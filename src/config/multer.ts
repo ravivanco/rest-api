@@ -56,7 +56,9 @@ const exerciseStorage = new CloudinaryStorage({
 const intakeStorage = new CloudinaryStorage({
   cloudinary,
   params: {
-    folder:          'dkfitt/consumo_adicional',
+    // Por defecto subimos a carpeta temporal. Al confirmar el consumo, se
+    // moverá la imagen a la carpeta permanente.
+    folder:          'dkfitt/consumo_adicional/temp',
     allowed_formats: ALLOWED_FORMATS,
     transformation:  [{ width: 1200, height: 1200, crop: 'limit', quality: 'auto' }],
   } as object,
