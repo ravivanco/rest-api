@@ -338,16 +338,26 @@ const matchIngrediente = async (
     .replace(/^(media|medio|un|una|uno|dos)\s+/i, '')
     .trim();
 
-  if (!nombreLimpio) {
-    return null;
-  }
+  if (!nombreLimpio) return null;
 
-  const result = await pool.query<AlimentoMatchado>(
+  // Intento 1: match con el nombre completo
+  const resultado1 = await pool.query<AlimentoMatchado>(
     MATCH_INGREDIENTE_POR_NOMBRE,
     [`%${nombreLimpio.toLowerCase()}%`, nombreLimpio],
   );
+  if (resultado1.rows[0]) return resultado1.rows[0];
 
-  return result.rows[0] ?? null;
+  // Intento 2: solo la primera palabra (más genérico)
+  const primeraPalabra = nombreLimpio.split(' ')[0];
+  if (primeraPalabra && primeraPalabra.length > 3) {
+    const resultado2 = await pool.query<AlimentoMatchado>(
+      MATCH_INGREDIENTE_POR_NOMBRE,
+      [`%${primeraPalabra.toLowerCase()}%`, primeraPalabra],
+    );
+    if (resultado2.rows[0]) return resultado2.rows[0];
+  }
+
+  return null;
 };
 
 const resolverIngredientes = async (
@@ -616,6 +626,13 @@ const buildPromptGenerico = (params: {
     '   Cada paso debe ser una instruccion concreta de cocina.',
     '   Separar cada paso con \n. Ejemplo:',
     '   "1. Lavar y cortar el pollo en cubos.\n2. Calentar aceite en sarten a fuego medio.\n3. Saltear el pollo 8 minutos hasta dorar.\n4. Agregar vegetales y cocinar 5 minutos mas.\n5. Sazonar con sal y pimienta. Servir caliente."',
+    '8. NUNCA uses ingredientes genericos como "frutas frescas", "verduras mixtas", "especias".',
+    '   Usa nombres especificos que existan en el catalogo, por ejemplo: "manzana", "zanahoria", "oregano".',
+    '9. Para frutas, elige UNA fruta especifica del catalogo, no un concepto generico.',
+    '10. Los ingredientes que coloques deben ser especificos.',
+    '    Ejemplo: no puedes decir solo "aceite" debes ser mas claron en el ingrediente que se usara: "aceite de olvia", "aceite de girasol".',
+    '11. Si el catalogo no tiene exactamente lo que necesitas, usa el ingrediente mas similar.',
+    '    Ejemplo: si necesitas "granola en barra" y el catalogo tiene "Granola", usa "Granola".',
     'REGLAS DE CANTIDADES - OBLIGATORIAS:',
     '- cantidad_g SIEMPRE debe ser un numero entero en gramos.',
     '- NUNCA uses decimales, fracciones, tazas, cucharadas u otras unidades.',
@@ -865,9 +882,9 @@ export const recipeGeneratorService = {
 
     const alimentosDetalleResult = categoriasPreferidas.length > 0
       ? await pool.query<AlimentoDetalleRow>(
-          GET_ALIMENTOS_DETALLE_BY_CATEGORIAS,
-          [categoriasPreferidas],
-        )
+        GET_ALIMENTOS_DETALLE_BY_CATEGORIAS,
+        [categoriasPreferidas],
+      )
       : await pool.query<AlimentoDetalleRow>(GET_ALIMENTOS_DETALLE_ALL);
 
     if (alimentosDetalleResult.rows.length === 0) {
