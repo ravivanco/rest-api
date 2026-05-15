@@ -147,15 +147,21 @@ export const authService = {
         id_perfil = perfil.id_perfil;
         formulario_completado = perfil.formulario_completado;
 
-        const [perfilBase, condiciones, preferencias, deportes, evaluacion] = await Promise.all([
+        const [perfilBase, condiciones, preferencias, deportes] = await Promise.all([
           patientProfileRepository.findByPerfilId(perfil.id_perfil),
           patientProfileRepository.findCondiciones(perfil.id_perfil),
           patientProfileRepository.findPreferencias(perfil.id_perfil),
           patientProfileRepository.findDeportes(perfil.id_perfil),
-          clinicalEvaluationsRepository.findLatestByPatient(perfil.id_perfil),
         ]);
 
-        evaluacion_clinica = evaluacion;
+        // Evaluación clínica es opcional — si falla (tabla sin migrar, sin datos, etc.)
+        // el login NO debe romperse. Se retorna null silenciosamente.
+        try {
+          evaluacion_clinica = await clinicalEvaluationsRepository.findLatestByPatient(perfil.id_perfil);
+        } catch (evalErr) {
+          console.warn('[auth][login] No se pudo obtener evaluación clínica:', evalErr);
+          evaluacion_clinica = null;
+        }
 
         onboarding = {
           nivel_actividad_fisica: perfilBase?.nivel_actividad_fisica ?? null,
