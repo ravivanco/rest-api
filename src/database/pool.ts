@@ -1,6 +1,16 @@
 import { Pool } from 'pg';
 import { env } from '@config/env';
 
+const useSsl = env.NODE_ENV === 'production';
+const rejectUnauthorized = process.env.DB_SSL_REJECT_UNAUTHORIZED === 'true';
+
+// En Render y muchos proveedores administrados, el certificado puede no validar
+// contra una CA del sistema. Por defecto usamos rejectUnauthorized=false para evitar
+// caídas en bootstrap, permitiendo endurecerlo por variable si se requiere.
+const sslConfig = useSsl
+  ? { rejectUnauthorized }
+  : false;
+
 /**
  * Pool de conexiones PostgreSQL.
  * Un pool mantiene varias conexiones abiertas y las reutiliza.
@@ -15,9 +25,7 @@ export const pool = new Pool({
   max:                    20,     // máximo de conexiones simultáneas
   idleTimeoutMillis:      30000,  // cerrar conexión inactiva después de 30s
   connectionTimeoutMillis: 2000,  // esperar máximo 2s para obtener conexión
-  ssl: env.NODE_ENV === 'production'
-    ? { rejectUnauthorized: true }
-    : false,
+  ssl: sslConfig,
 });
 
 // Loguear errores del pool que ocurran en background
