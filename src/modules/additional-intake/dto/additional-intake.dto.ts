@@ -59,7 +59,9 @@ export const AnalyzeAdditionalIntakeDto = z.object({
 
   imagen_base64: z
     .string()
-    .min(100, 'imagen_base64 no parece válida')
+    .trim()
+    .transform((value) => value === '' ? undefined : value)
+    .pipe(z.string().min(100, 'imagen_base64 no parece válida').optional())
     .optional()
     .nullable(),
 })

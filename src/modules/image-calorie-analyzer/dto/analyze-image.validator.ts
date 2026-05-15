@@ -4,7 +4,9 @@ export const AnalyzeImageSchema = z.object({
   // Base64 desde la app móvil
   imagen_base64: z
     .string()
-    .min(100, 'imagen_base64 no parece válida')
+    .trim()
+    .transform((value) => value === '' ? undefined : value)
+    .pipe(z.string().min(100, 'imagen_base64 no parece válida').optional())
     .optional(),
 
   // URL desde la web

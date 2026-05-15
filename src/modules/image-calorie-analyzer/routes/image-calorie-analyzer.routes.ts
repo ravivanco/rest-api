@@ -46,6 +46,8 @@ export const imageCalorieAnalyzerRouter = Router();
  *     responses:
  *       200:
  *         description: Analisis completado con estimacion calorica
+ *       400:
+ *         description: Datos de entrada inválidos
  */
 imageCalorieAnalyzerRouter.post(
   '/analyze',
