@@ -39,6 +39,37 @@ export type CreateAdditionalIntakeDto = z.infer<typeof CreateAdditionalIntakeDto
 
 
 /**
+ * DTO para analizar un consumo adicional antes de registrarlo.
+ * Se usa desde la app móvil para obtener contexto y una estimación inicial.
+ */
+export const AnalyzeAdditionalIntakeDto = z.object({
+
+  descripcion_alimento: z
+    .string()
+    .max(200, 'La descripción no puede superar 200 caracteres')
+    .trim()
+    .optional()
+    .nullable(),
+
+  imagen_url: z
+    .string()
+    .url('El enlace de la imagen debe ser una URL válida')
+    .optional()
+    .nullable(),
+})
+.superRefine((data, ctx) => {
+  if (!data.descripcion_alimento && !data.imagen_url) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Debes enviar al menos una descripción o una imagen_url para analizar',
+      path: ['descripcion_alimento'],
+    });
+  }
+});
+export type AnalyzeAdditionalIntakeDto = z.infer<typeof AnalyzeAdditionalIntakeDto>;
+
+
+/**
  * DTO para confirmar un consumo adicional y sumarlo al balance calórico.
  * Se puede ajustar la estimación de calorías antes de confirmar.
  */

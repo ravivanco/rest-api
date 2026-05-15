@@ -1,28 +1,67 @@
+import { visionClient } from '@config/vision';
 
 export interface CalorieEstimationResult {
-  calorias_estimadas:     number | null;
-  fuente_estimacion:      'manual' | 'ia_vision' | 'pendiente';
-  confianza_pct:          number | null;  // 0-100, null si no hay IA
-  mensaje:                string;
+  calorias_estimadas: number | null;
+  fuente_estimacion: 'manual' | 'ia_vision' | 'pendiente';
+  confianza_pct: number | null;
+  mensaje: string;
 }
 
-/**
- * Estima las calorías a partir de una URL de imagen.
- * Actualmente retorna null — el paciente las ingresa manualmente.
- */
 export const estimateFromImage = async (
-  _imageUrl: string,
-  _descripcion: string,
+  imageUrl: string,
+  descripcion: string,
 ): Promise<CalorieEstimationResult> => {
+  try {
+    // Usar labelDetection y textDetection
+    const [labelResp] = await visionClient.labelDetection(imageUrl);
+    const [textResp]  = await visionClient.textDetection(imageUrl);
 
-  // Implementación futura de IA va aquí
-  // Por ahora retorna estado 'pendiente' para que el usuario las ingrese
-  return {
-    calorias_estimadas:  null,
-    fuente_estimacion:   'pendiente',
-    confianza_pct:       null,
-    mensaje: 'Ingresa las calorías estimadas manualmente para confirmar el consumo.',
-  };
+    const labels = (labelResp.labelAnnotations || []).map((label: { description?: string | null }) =>
+      (label.description || '').toLowerCase(),
+    );
+    const ocrText = (textResp.textAnnotations && textResp.textAnnotations[0])
+      ? (textResp.textAnnotations[0].description || '').toLowerCase()
+      : '';
+
+    const combined = `${labels.join(' ')} ${ocrText} ${descripcion}`.toLowerCase();
+
+    // Mapa inicial de palabras clave -> calorías (extender según necesidades)
+    const estimaciones: Record<string, number> = {
+      'hamburguesa': 650, 'hamburger': 650, 'pizza': 800, 'ensalada': 200,
+      'salad': 200, 'arroz': 350, 'rice': 350, 'pollo': 280, 'chicken': 280,
+      'papas': 160, 'fries': 350, 'patatas': 160, 'arepa': 230, 'empanada': 320,
+      'jugo': 120, 'gaseosa': 150, 'soda': 150, 'pan': 250, 'fruta': 80,
+    };
+
+    let found: number | null = null;
+    for (const [key, val] of Object.entries(estimaciones)) {
+      if (combined.includes(key)) { found = val; break; }
+    }
+
+    if (found !== null) {
+      return {
+        calorias_estimadas: found,
+        fuente_estimacion: 'ia_vision',
+        confianza_pct: 60,
+        mensaje: 'Estimación basada en etiquetas OCR y descripción. Verifica antes de confirmar.',
+      };
+    }
+
+    return {
+      calorias_estimadas: null,
+      fuente_estimacion: 'pendiente',
+      confianza_pct: null,
+      mensaje: 'No se encontró una estimación fiable desde la imagen.',
+    };
+
+  } catch (err: any) {
+    return {
+      calorias_estimadas: null,
+      fuente_estimacion: 'pendiente',
+      confianza_pct: null,
+      mensaje: `Error al procesar la imagen: ${String(err.message || err)}`,
+    };
+  }
 };
 
 /**

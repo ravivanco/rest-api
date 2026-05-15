@@ -4,6 +4,7 @@ import { authenticate }                from '@middlewares/authenticate';
 import { requireRole }                 from '@middlewares/authorize';
 import { validate }                    from '@middlewares/validate';
 import { CreateAdditionalIntakeDto, ConfirmIntakeDto } from '../dto/additional-intake.dto';
+import { AnalyzeAdditionalIntakeDto } from '../dto/additional-intake.dto';
 
 export const additionalIntakeRouter = Router();
 
@@ -88,6 +89,16 @@ additionalIntakeRouter.post(
   requireRole('paciente'),
   validate(CreateAdditionalIntakeDto),
   additionalIntakeController.create,
+);
+
+// Endpoint para análisis previo desde la app móvil (no requiere autenticación si así lo deseas,
+// pero por seguridad aquí lo dejamos autenticado y con rol paciente).
+additionalIntakeRouter.post(
+  '/analyze',
+  authenticate,
+  requireRole('paciente'),
+  validate(AnalyzeAdditionalIntakeDto),
+  additionalIntakeController.analyze,
 );
 
 /**

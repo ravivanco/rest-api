@@ -1,3 +1,4 @@
+import { AnalyzeAdditionalIntakeDto } from '../dto/additional-intake.dto';
 import { Request, Response, NextFunction }  from 'express';
 import { additionalIntakeService }          from '../service/additional-intake.service';
 import { ok, created }                      from '@utils/response';
@@ -22,6 +23,18 @@ export const additionalIntakeController = {
       created(res, result,
         'Consumo registrado. Confirma para sumarlo a tu balance calórico del día.'
       );
+    } catch (error) { next(error); }
+  },
+
+  /**
+   * POST /api/additional-intake/analyze
+   * Análisis del consumo adicional.
+   */
+  async analyze(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const data = req.body as typeof AnalyzeAdditionalIntakeDto._type; // type-safe cast
+      const result = await additionalIntakeService.analyzeIntake(data as any);
+      ok(res, result);
     } catch (error) { next(error); }
   },
 

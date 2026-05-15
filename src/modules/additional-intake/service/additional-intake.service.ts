@@ -1,7 +1,11 @@
 import { additionalIntakeRepository } from '../repository/additional-intake.repository';
 import { calorieControlRepository }   from '../../calorie-control/repository/calorie-control.repository';
-import { estimateFromDescription }     from '../../../infrastructure/calorie-estimator';
-import { CreateAdditionalIntakeDto, ConfirmIntakeDto } from '../dto/additional-intake.dto';
+import { estimateFromDescription, estimateFromImage } from '../../../infrastructure/calorie-estimator';
+import {
+  CreateAdditionalIntakeDto,
+  ConfirmIntakeDto,
+  AnalyzeAdditionalIntakeDto,
+} from '../dto/additional-intake.dto';
 import { NotFoundError, BusinessRuleError, ForbiddenError } from '@errors/AppError';
 import { pool } from '@database/pool';
 
@@ -32,10 +36,18 @@ export const additionalIntakeService = {
     // 2. Si no tiene calorías manuales, intentar estimación automática
     let estimacion = null;
     if (!data.calorias_estimadas) {
-      estimacion = await estimateFromDescription(data.descripcion_alimento);
+      // Preferir estimación desde imagen si existe
+      if (data.imagen_url) {
+        estimacion = await estimateFromImage(data.imagen_url, data.descripcion_alimento);
+      }
+
+      // Si no se obtuvo estimación desde imagen, usar descripción
+      if (!estimacion || !estimacion.calorias_estimadas) {
+        estimacion = await estimateFromDescription(data.descripcion_alimento);
+      }
 
       // Si la estimación encontró calorías, actualizar el registro
-      if (estimacion.calorias_estimadas) {
+      if (estimacion && estimacion.calorias_estimadas) {
         await pool.query(
           `UPDATE consumos_adicionales
            SET calorias_estimadas = $1, updated_at = NOW()
@@ -71,6 +83,56 @@ export const additionalIntakeService = {
       proximos_pasos: {
         confirmar:  `PATCH /api/additional-intake/${consumo.id_consumo_adicional}/confirm`,
         descartar:  `POST /api/additional-intake/${consumo.id_consumo_adicional}/discard`,
+      },
+    };
+  },
+
+
+  /**
+   * Analiza un consumo adicional antes de registrarlo.
+   * Devuelve contexto para que la app móvil muestre una revisión al usuario.
+   */
+  async analyzeIntake(
+    data: AnalyzeAdditionalIntakeDto,
+  ) {
+
+    const descripcion = data.descripcion_alimento ?? '';
+    let estimacion = null;
+
+    if (data.imagen_url) {
+      estimacion = await estimateFromImage(data.imagen_url, descripcion);
+    }
+
+    if (!estimacion || !estimacion.calorias_estimadas) {
+      estimacion = await estimateFromDescription(descripcion);
+    }
+
+    const sugerenciaAccion = estimacion.calorias_estimadas
+      ? (estimacion.confianza_pct && estimacion.confianza_pct >= 50 ? 'confirmar' : 'editar')
+      : 'ingresar_manualmente';
+
+    return {
+      contexto: {
+        descripcion_alimento: data.descripcion_alimento ?? null,
+        imagen_url: data.imagen_url ?? null,
+        calorias_estimadas: estimacion.calorias_estimadas,
+        fuente_estimacion: estimacion.fuente_estimacion,
+        confianza_pct: estimacion.confianza_pct,
+        mensaje: estimacion.mensaje,
+        sugerencia_accion: sugerenciaAccion,
+      },
+      ui_mobile: {
+        titulo: estimacion.calorias_estimadas
+          ? 'Revisa la estimación antes de guardar'
+          : 'No se pudo estimar automáticamente',
+        subtitulo: estimacion.calorias_estimadas
+          ? 'La app puede mostrar esta estimación para que el usuario la confirme o edite.'
+          : 'La app debe solicitar calorías manuales al usuario.',
+      },
+      proximos_pasos: {
+        registrar_consumo: 'POST /api/additional-intake',
+        confirmar: 'PATCH /api/additional-intake/{id}/confirm',
+        descartar: 'POST /api/additional-intake/{id}/discard',
       },
     };
   },
