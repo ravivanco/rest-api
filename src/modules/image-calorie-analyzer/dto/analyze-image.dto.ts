@@ -57,4 +57,15 @@ export interface ImageCaloriesResult {
 
   /** URL de la imagen si fue procesada. */
   imagen_url?:          string | null;
+  /** Formato extendido compatible con Gemini Vision */
+  foods?: Array<{
+    name: string;
+    quantity_g: number | null;
+    calories_kcal: number | null;
+    macros?: { protein_g?: number | null; carbs_g?: number | null; fats_g?: number | null };
+    confidence_pct?: number | null;
+  }>;
+  totals?: { calories_kcal: number | null; protein_g?: number | null; carbs_g?: number | null; fats_g?: number | null };
+  health_score?: number | null;
+  recommendation?: string | null;
 }

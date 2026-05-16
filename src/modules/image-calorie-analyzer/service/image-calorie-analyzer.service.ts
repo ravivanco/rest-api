@@ -80,6 +80,11 @@ export const imageCalorieAnalyzerService = {
         grasas_g:        resultado.macros?.grasas_g        ?? null,
       },
       mensaje: resultado.mensaje,
+      // Campos extendidos (compatibilidad con Gemini Vision)
+      foods: resultado.foods ?? undefined,
+      totals: resultado.totals ?? undefined,
+      health_score: resultado.health_score ?? undefined,
+      recommendation: resultado.recommendation ?? undefined,
     };
   },
 

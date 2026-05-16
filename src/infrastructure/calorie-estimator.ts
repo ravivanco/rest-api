@@ -33,6 +33,17 @@ export interface CalorieEstimationResult {
   alimentos_detectados: AlimentoDetectado[];
   macros:               MacrosResult;
   mensaje:              string;
+  // Campos opcionales para formato extendido (compatibilidad con Gemini Vision)
+  foods?: Array<{
+    name: string;
+    quantity_g: number | null;
+    calories_kcal: number | null;
+    macros?: { protein_g?: number | null; carbs_g?: number | null; fats_g?: number | null };
+    confidence_pct?: number | null;
+  }>;
+  totals?: { calories_kcal: number | null; protein_g?: number | null; carbs_g?: number | null; fats_g?: number | null };
+  health_score?: number | null;
+  recommendation?: string | null;
 }
 
 export type ImageSource = string | { url?: string; base64?: string };
@@ -54,35 +65,20 @@ async function fetchImageAsBase64(url: string): Promise<{ base64: string; mimeTy
   log.info('Descargando imagen con fetch...', url);
 
   const controller = new AbortController();
-  // Timeout de 15 segundos — suficiente para Cloudinary
-  const timeout = setTimeout(() => {
-    controller.abort();
-    log.error('Timeout al descargar la imagen (15s superados):', url);
-  }, 15_000);
+  const timeout = setTimeout(() => controller.abort(), 15_000);
 
   try {
     const response = await fetch(url, { signal: controller.signal });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status} ${response.statusText} al descargar imagen`);
-    }
-
+    if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText} al descargar imagen`);
     const contentType = response.headers.get('content-type') || 'image/jpeg';
-    // Normalizar el mimeType (quitar parámetros como "; charset=...")
     const mimeType = contentType.split(';')[0].trim();
-    log.info('Content-Type de la imagen:', mimeType);
-
-    const buffer     = await response.arrayBuffer();
-    const base64     = Buffer.from(buffer).toString('base64');
+    const buffer = await response.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString('base64');
     log.ok(`Imagen descargada: ${Math.round(base64.length / 1024)} KB en base64, mimeType: ${mimeType}`);
-
     return { base64, mimeType };
-
   } catch (err) {
     const error = err as Error;
-    if (error.name === 'AbortError') {
-      throw new Error('Timeout al descargar la imagen. Verifica que la URL sea accesible.');
-    }
+    if (error.name === 'AbortError') throw new Error('Timeout al descargar la imagen. Verifica que la URL sea accesible.');
     log.error('Error descargando imagen:', error.message);
     throw error;
   } finally {
@@ -92,16 +88,12 @@ async function fetchImageAsBase64(url: string): Promise<{ base64: string; mimeTy
 
 // ─── Helper: extraer base64 e info de una fuente ─────────────────────────────
 
-async function resolveImageBase64(
-  imageSource: ImageSource,
-): Promise<{ base64: string; mimeType: string }> {
-
+async function resolveImageBase64(imageSource: ImageSource): Promise<{ base64: string; mimeType: string }> {
   if (typeof imageSource === 'object' && imageSource.base64) {
     log.info('Fuente: base64 directo (app móvil)');
     const raw = imageSource.base64;
-    let base64   = raw;
+    let base64 = raw;
     let mimeType = 'image/jpeg';
-
     if (raw.includes(',')) {
       const match = raw.match(/^data:([^;]+);base64,/);
       if (match) mimeType = match[1];
@@ -114,32 +106,24 @@ async function resolveImageBase64(
   const url = typeof imageSource === 'string' ? imageSource : imageSource.url!;
   log.info('Fuente: URL pública →', url);
 
-  // Detectar mimeType por extensión antes de descargar
   let mimeTypeHint = 'image/jpeg';
-  if (url.includes('.png'))  mimeTypeHint = 'image/png';
+  if (url.includes('.png')) mimeTypeHint = 'image/png';
   else if (url.includes('.webp')) mimeTypeHint = 'image/webp';
-  else if (url.includes('.gif'))  mimeTypeHint = 'image/gif';
+  else if (url.includes('.gif')) mimeTypeHint = 'image/gif';
 
   const result = await fetchImageAsBase64(url);
-  // Preferir mimeType del Content-Type header, pero usar hint si es genérico
   const finalMime = result.mimeType === 'application/octet-stream' ? mimeTypeHint : result.mimeType;
   return { base64: result.base64, mimeType: finalMime };
 }
 
 // ─── Google Vision ────────────────────────────────────────────────────────────
 
-async function extractVisionContext(
-  imageSource: ImageSource,
-): Promise<{ labels: string[]; ocrText: string }> {
+async function extractVisionContext(imageSource: ImageSource): Promise<{ labels: string[]; ocrText: string }> {
   log.step(1, 'Google Vision — detectando etiquetas y texto OCR');
 
-  // Vision puede recibir Buffer o URL como string
   let visionInput: string | Buffer;
-
   if (typeof imageSource === 'object' && imageSource.base64) {
-    const raw = imageSource.base64.includes(',')
-      ? imageSource.base64.split(',')[1]
-      : imageSource.base64;
+    const raw = imageSource.base64.includes(',') ? imageSource.base64.split(',')[1] : imageSource.base64;
     visionInput = Buffer.from(raw, 'base64');
     log.info('Vision input: Buffer desde base64');
   } else {
@@ -147,22 +131,14 @@ async function extractVisionContext(
     log.info('Vision input: URL →', visionInput);
   }
 
-  log.info('Llamando labelDetection...');
   const [labelResp] = await visionClient.labelDetection(visionInput as never);
-
-  log.info('Llamando textDetection...');
   const [textResp]  = await visionClient.textDetection(visionInput as never);
 
-  const labels = (labelResp.labelAnnotations || [])
-    .map((l: { description?: string | null }) => (l.description || '').toLowerCase())
-    .filter(Boolean);
-
+  const labels = (labelResp.labelAnnotations || []).map((l: { description?: string | null }) => (l.description || '').toLowerCase()).filter(Boolean);
   const ocrText = textResp.textAnnotations?.[0]?.description?.toLowerCase() || '';
 
   log.ok(`Vision OK — ${labels.length} etiquetas: [${labels.slice(0, 5).join(', ')}${labels.length > 5 ? '...' : ''}]`);
-  if (ocrText) log.info('OCR:', ocrText.substring(0, 150));
-  else         log.info('OCR: sin texto detectado');
-
+  if (ocrText) log.info('OCR:', ocrText.substring(0, 150)); else log.info('OCR: sin texto detectado');
   return { labels, ocrText };
 }
 
@@ -237,7 +213,7 @@ interface GeminiCalorieResponse {
   fuente:  string;
 }
 
-// ─── Llamada a Gemini ─────────────────────────────────────────────────────────
+// ─── Llamada a Gemini con retries y parsing robusto ─────────────────────────
 
 async function callGemini(
   imageSource: ImageSource,
@@ -245,25 +221,21 @@ async function callGemini(
   ocrText:     string,
   descripcion: string,
 ): Promise<GeminiCalorieResponse | null> {
-  log.step(2, 'Gemini 1.5 Flash — análisis visual de la imagen');
+  log.step(2, 'Gemini — análisis visual de la imagen');
 
-  // ── Verificar cliente ────────────────────────────────────────────────────
   if (!geminiClient) {
     log.error('geminiClient es NULL');
-    log.error('→ GEMINI_API_KEY no está configurada en las variables de entorno de Render.');
-    log.error('→ Ve a Render → tu servicio → Environment → Add environment variable → GEMINI_API_KEY=AIza...');
+    log.error('→ GEMINI_API_KEY no está configurada en las variables de entorno.');
     return null;
   }
   log.ok(`geminiClient listo. Modelo: ${env.GEMINI_MODEL}`);
 
-  // ── Preparar imagen en base64 ────────────────────────────────────────────
   let imageBase64: string;
   let mimeType: string;
-
   try {
     const resolved = await resolveImageBase64(imageSource);
-    imageBase64    = resolved.base64;
-    mimeType       = resolved.mimeType;
+    imageBase64 = resolved.base64;
+    mimeType = resolved.mimeType;
   } catch (downloadErr) {
     const err = downloadErr as Error;
     log.error('No se pudo obtener base64 de la imagen:', err.message);
@@ -271,220 +243,135 @@ async function callGemini(
     return null;
   }
 
-  // ── Llamar a Gemini ──────────────────────────────────────────────────────
-  try {
-    const model  = geminiClient.getGenerativeModel({ model: env.GEMINI_MODEL });
-    const prompt = buildCaloriePrompt(labels, ocrText, descripcion);
+  const attempts = 2;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const model = geminiClient.getGenerativeModel({ model: env.GEMINI_MODEL });
+      const prompt = buildCaloriePrompt(labels, ocrText, descripcion);
 
-    log.info(`Enviando a Gemini: imagen ${Math.round(imageBase64.length / 1024)} KB, mimeType: ${mimeType}`);
+      log.info(`Enviando a Gemini (intento ${attempt}/${attempts}) — imagen ~${Math.round(imageBase64.length / 1024)} KB`);
 
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          mimeType: mimeType as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif',
-          data:     imageBase64,
-        },
-      },
-      { text: prompt },
-    ]);
+      const result = await model.generateContent([
+        { inlineData: { mimeType: mimeType as any, data: imageBase64 } },
+        { text: prompt },
+      ]);
 
-    const rawText = result.response.text();
-    log.info('Respuesta raw de Gemini →', rawText);
+      const rawText = result.response.text();
+      log.info('Respuesta raw de Gemini →', rawText.substring(0, 1000));
 
-    // Limpiar posibles bloques ```json ... ```
-    const cleaned = rawText
-      .replace(/^```json\s*/i, '')
-      .replace(/^```\s*/i, '')
-      .replace(/\s*```$/i, '')
-      .trim();
+      let cleaned = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+      if (!cleaned.startsWith('{') && !cleaned.startsWith('[')) {
+        const m = cleaned.match(/(\{[\s\S]*\})/);
+        if (m) cleaned = m[1];
+      }
 
-    log.info('JSON limpio →', cleaned);
+      log.info('JSON limpio →', cleaned.substring(0, 1000));
+      const parsed = JSON.parse(cleaned) as GeminiCalorieResponse;
+      log.ok(`Gemini OK → ${parsed.calorias_estimadas} kcal, confianza ${parsed.confianza_pct}%`);
+      return parsed;
 
-    const parsed = JSON.parse(cleaned) as GeminiCalorieResponse;
-    log.ok(`Gemini OK → ${parsed.calorias_estimadas} kcal, confianza ${parsed.confianza_pct}%, ${parsed.alimentos_detectados?.length ?? 0} alimentos`);
-    return parsed;
+    } catch (e) {
+      const err = e as Error;
+      log.error('Error en llamada a Gemini:', err.message);
+      if (err.message?.includes('API_KEY_INVALID') || err.message?.includes('API key not valid')) {
+        log.error('→ CAUSA: GEMINI_API_KEY inválida.');
+      } else if (err.message?.includes('PERMISSION_DENIED')) {
+        log.error('→ CAUSA: Permiso denegado. Habilita Generative API en GCP.');
+      }
 
-  } catch (geminiErr) {
-    const err = geminiErr as Error;
-    log.error('Error en llamada a Gemini:');
-    log.error('  Nombre :', err.name);
-    log.error('  Mensaje:', err.message);
-
-    if (err.message?.includes('API_KEY_INVALID') || err.message?.includes('API key not valid')) {
-      log.error('  → CAUSA: GEMINI_API_KEY inválida. Verifica en https://aistudio.google.com/app/apikey');
-    } else if (err.message?.includes('PERMISSION_DENIED')) {
-      log.error('  → CAUSA: Permiso denegado. Habilita "Generative Language API" en Google Cloud Console.');
-    } else if (err.message?.includes('RESOURCE_EXHAUSTED') || err.message?.includes('quota')) {
-      log.error('  → CAUSA: Cuota de Gemini agotada. Espera o activa facturación.');
-    } else if (err.message?.includes('JSON') || err.message?.includes('parse')) {
-      log.error('  → CAUSA: Gemini no devolvió JSON válido. Ver respuesta raw arriba.');
-    } else if (err.message?.includes('fetch') || err.message?.includes('network') || err.message?.includes('ECONNRESET')) {
-      log.error('  → CAUSA: Error de red al conectar con Gemini API.');
-    } else if (err.message?.includes('Candidate was blocked')) {
-      log.error('  → CAUSA: Gemini bloqueó el contenido por políticas de seguridad. Intenta con otra imagen.');
+      if (attempt < attempts) {
+        await new Promise(r => setTimeout(r, 800 * attempt));
+        continue;
+      }
+      return null;
     }
-
-    return null;
   }
+  return null;
+}
+
+// ─── Normalizar la respuesta de Gemini al formato extendido solicitado ─────
+function normalizeGeminiToExtended(parsed: GeminiCalorieResponse) {
+  const foods = (parsed.alimentos_detectados || []).map(a => ({
+    name: a.nombre,
+    quantity_g: a.cantidad_g ?? null,
+    calories_kcal: a.calorias ?? null,
+    macros: {
+      protein_g: parsed.macros?.proteinas_g ?? null,
+      carbs_g: parsed.macros?.carbohidratos_g ?? null,
+      fats_g: parsed.macros?.grasas_g ?? null,
+    },
+    confidence_pct: parsed.confianza_pct ?? null,
+  }));
+
+  const totals = {
+    calories_kcal: parsed.calorias_estimadas ?? null,
+    protein_g: parsed.macros?.proteinas_g ?? null,
+    carbs_g: parsed.macros?.carbohidratos_g ?? null,
+    fats_g: parsed.macros?.grasas_g ?? null,
+  };
+
+  let health_score: number | null = null;
+  let recommendation: string | null = null;
+  if (totals.calories_kcal !== null) {
+    const c = totals.calories_kcal;
+    let score = 50;
+    if (c <= 400) score += 20; else if (c <= 700) score += 10; else score -= 10;
+    if ((totals.fats_g ?? 0) > 30) score -= 10;
+    if ((totals.protein_g ?? 0) >= 20) score += 5;
+    health_score = Math.max(0, Math.min(100, Math.round(score)));
+    if (health_score >= 70) recommendation = 'Porción adecuada y balanceada. Mantén verduras y proteínas magras.';
+    else if (health_score >= 45) recommendation = 'Porción moderada. Considera reducir grasas o aumentar verduras.';
+    else recommendation = 'Porción alta o desequilibrada. Considera porciones más pequeñas o alternativas bajas en grasa.';
+  }
+
+  return { foods, totals, health_score, recommendation };
 }
 
 // ─── Función principal exportada ──────────────────────────────────────────────
 
-export const estimateFromImage = async (
-  imageSource: ImageSource,
-  descripcion: string,
-): Promise<CalorieEstimationResult> => {
-
+export const estimateFromImage = async (imageSource: ImageSource, descripcion: string): Promise<CalorieEstimationResult> => {
   log.info('═══════════════════════════════════════════════════════════');
   log.info('INICIO ANÁLISIS CALÓRICO');
   log.info('  Descripción:', descripcion || '(sin descripción)');
-  log.info('  Tipo fuente:', typeof imageSource === 'object' && (imageSource as { base64?: string }).base64 ? 'base64' : 'url');
-  if (typeof imageSource === 'object' && (imageSource as { url?: string }).url) {
-    log.info('  URL:', (imageSource as { url: string }).url);
-  }
   log.info('═══════════════════════════════════════════════════════════');
 
-  // ── Paso 1: Google Vision ──────────────────────────────────────────────────
-  let labels:  string[] = [];
-  let ocrText: string   = '';
+  let labels: string[] = [];
+  let ocrText = '';
+  try { const ctx = await extractVisionContext(imageSource); labels = ctx.labels; ocrText = ctx.ocrText; } catch (visionErr) { log.warn('Google Vision falló — continuando sin contexto de etiquetas', (visionErr as Error).message); }
 
-  try {
-    const ctx = await extractVisionContext(imageSource);
-    labels    = ctx.labels;
-    ocrText   = ctx.ocrText;
-  } catch (visionErr) {
-    const err = visionErr as Error;
-    log.warn('Google Vision falló — continuando sin contexto de etiquetas');
-    log.warn('  Error Vision:', err.message);
-    if (err.message?.includes('credentials') || err.message?.includes('CREDENTIALS')) {
-      log.warn('  → CAUSA: GOOGLE_CREDENTIALS_JSON mal configurada en Render.');
-    } else if (err.message?.includes('PERMISSION_DENIED')) {
-      log.warn('  → CAUSA: El service account no tiene acceso a Cloud Vision API.');
-    }
-    // Vision falla → Gemini igual puede analizar solo con la imagen
-  }
-
-  // ── Paso 2: Gemini 1.5 Flash ───────────────────────────────────────────────
   const geminiResult = await callGemini(imageSource, labels, ocrText, descripcion);
-
   if (geminiResult) {
-    log.ok('Pipeline completo con IA (ia_vision)');
-    log.info('═══════════════════════════════════════════════════════════\n');
+    const extended = normalizeGeminiToExtended(geminiResult);
     return {
-      calorias_estimadas:   geminiResult.calorias_estimadas,
-      porcion_estimada_g:   geminiResult.porcion_estimada_g ?? null,
-      confianza_pct:        geminiResult.confianza_pct,
-      fuente_estimacion:    'ia_vision',
+      calorias_estimadas: geminiResult.calorias_estimadas,
+      porcion_estimada_g: geminiResult.porcion_estimada_g ?? null,
+      confianza_pct: geminiResult.confianza_pct,
+      fuente_estimacion: 'ia_vision',
       etiquetas_detectadas: labels,
-      texto_detectado:      ocrText || null,
-      alimentos_detectados: (geminiResult.alimentos_detectados || []).map(a => ({
-        nombre:     a.nombre,
-        cantidad_g: a.cantidad_g ?? null,
-        calorias:   a.calorias,
-      })),
-      macros: {
-        proteinas_g:     geminiResult.macros?.proteinas_g     ?? null,
-        carbohidratos_g: geminiResult.macros?.carbohidratos_g ?? null,
-        grasas_g:        geminiResult.macros?.grasas_g        ?? null,
-      },
+      texto_detectado: ocrText || null,
+      alimentos_detectados: (geminiResult.alimentos_detectados || []).map(a => ({ nombre: a.nombre, cantidad_g: a.cantidad_g ?? null, calorias: a.calorias })),
+      macros: { proteinas_g: geminiResult.macros?.proteinas_g ?? null, carbohidratos_g: geminiResult.macros?.carbohidratos_g ?? null, grasas_g: geminiResult.macros?.grasas_g ?? null },
       mensaje: geminiResult.mensaje,
+      foods: extended.foods,
+      totals: extended.totals,
+      health_score: extended.health_score,
+      recommendation: extended.recommendation,
     };
   }
 
-  // ── Paso 3: Fallback heurístico ────────────────────────────────────────────
   log.step(3, 'Fallback heurístico (Gemini no disponible)');
   const combined = `${labels.join(' ')} ${ocrText} ${descripcion}`.toLowerCase();
-  log.info('Texto combinado heurística:', combined.substring(0, 200));
+  const estimaciones: Record<string, number> = { 'hamburguesa':650,'pizza':800,'ensalada':200,'arroz':350,'pollo':280,'papas':160,'arepa':230,'empanada':320,'jugo':120,'gaseosa':150,'pan':250,'fruta':80,'bandeja':900 };
+  for (const [k,v] of Object.entries(estimaciones)) if (combined.includes(k)) return { calorias_estimadas: v, porcion_estimada_g: null, confianza_pct: 40, fuente_estimacion: 'heuristica', etiquetas_detectadas: labels, texto_detectado: ocrText || null, alimentos_detectados: [], macros: { proteinas_g: null, carbohidratos_g: null, grasas_g: null }, mensaje: 'Estimación aproximada. Para mayor precisión, la IA necesita estar correctamente configurada.' };
 
-  const estimaciones: Record<string, number> = {
-    'hamburguesa': 650, 'hamburger': 650, 'pizza': 800,
-    'ensalada': 200,   'salad': 200,      'arroz': 350,
-    'rice': 350,       'pollo': 280,      'chicken': 280,
-    'papas': 160,      'fries': 350,      'arepa': 230,
-    'empanada': 320,   'jugo': 120,       'gaseosa': 150,
-    'soda': 150,       'pan': 250,        'fruta': 80,
-    'bandeja': 900,    'sancocho': 450,   'ajiaco': 480,
-    'soup': 350,       'salchipapa': 600, 'perro': 420,
-  };
-
-  let found: number | null = null;
-  for (const [key, val] of Object.entries(estimaciones)) {
-    if (combined.includes(key)) {
-      log.info(`Match heurístico: "${key}" → ${val} kcal`);
-      found = val;
-      break;
-    }
-  }
-
-  log.info('═══════════════════════════════════════════════════════════\n');
-
-  if (found !== null) {
-    return {
-      calorias_estimadas:   found,
-      porcion_estimada_g:   null,
-      confianza_pct:        40,
-      fuente_estimacion:    'heuristica',
-      etiquetas_detectadas: labels,
-      texto_detectado:      ocrText || null,
-      alimentos_detectados: [],
-      macros:               { proteinas_g: null, carbohidratos_g: null, grasas_g: null },
-      mensaje:              'Estimación aproximada. Para mayor precisión, la IA necesita estar correctamente configurada.',
-    };
-  }
-
-  log.warn('Sin resultados en ningún pipeline. Devolviendo "pendiente".');
-  return {
-    calorias_estimadas:   null,
-    porcion_estimada_g:   null,
-    confianza_pct:        null,
-    fuente_estimacion:    'pendiente',
-    etiquetas_detectadas: labels,
-    texto_detectado:      ocrText || null,
-    alimentos_detectados: [],
-    macros:               { proteinas_g: null, carbohidratos_g: null, grasas_g: null },
-    mensaje:              'No se pudo estimar automáticamente. Ingresa las calorías manualmente.',
-  };
+  return { calorias_estimadas: null, porcion_estimada_g: null, confianza_pct: null, fuente_estimacion: 'pendiente', etiquetas_detectadas: labels, texto_detectado: ocrText || null, alimentos_detectados: [], macros: { proteinas_g: null, carbohidratos_g: null, grasas_g: null }, mensaje: 'No se pudo estimar automáticamente. Ingresa las calorías manualmente.' };
 };
 
-export const estimateFromDescription = async (
-  descripcion: string,
-): Promise<CalorieEstimationResult> => {
+export const estimateFromDescription = async (descripcion: string): Promise<CalorieEstimationResult> => {
   log.info('estimateFromDescription fallback:', descripcion);
-
-  const estimaciones: Record<string, number> = {
-    'hamburguesa': 650, 'pizza': 800,    'ensalada': 200,
-    'arroz': 350,       'pollo': 280,    'papa': 160,
-    'arepa': 230,       'empanada': 320, 'jugo': 120,
-    'gaseosa': 150,     'agua': 0,       'café': 10,
-    'fruta': 80,        'pan': 250,      'bandeja': 900,
-  };
-
+  const estimaciones: Record<string, number> = { 'hamburguesa':650,'pizza':800,'ensalada':200,'arroz':350,'pollo':280,'papa':160,'arepa':230,'empanada':320,'jugo':120,'gaseosa':150,'agua':0,'café':10,'fruta':80,'pan':250,'bandeja':900 };
   const lower = descripcion.toLowerCase();
-  for (const [k, v] of Object.entries(estimaciones)) {
-    if (lower.includes(k)) {
-      return {
-        calorias_estimadas:   v,
-        porcion_estimada_g:   null,
-        confianza_pct:        40,
-        fuente_estimacion:    'heuristica',
-        etiquetas_detectadas: [lower],
-        texto_detectado:      lower,
-        alimentos_detectados: [],
-        macros:               { proteinas_g: null, carbohidratos_g: null, grasas_g: null },
-        mensaje:              'Estimación basada en la descripción. Ajusta si es necesario.',
-      };
-    }
-  }
+  for (const [k,v] of Object.entries(estimaciones)) if (lower.includes(k)) return { calorias_estimadas: v, porcion_estimada_g: null, confianza_pct: 40, fuente_estimacion: 'heuristica', etiquetas_detectadas: [lower], texto_detectado: lower, alimentos_detectados: [], macros: { proteinas_g: null, carbohidratos_g: null, grasas_g: null }, mensaje: 'Estimación basada en la descripción. Ajusta si es necesario.' };
+  return { calorias_estimadas: null, porcion_estimada_g: null, confianza_pct: null, fuente_estimacion: 'pendiente', etiquetas_detectadas: [], texto_detectado: null, alimentos_detectados: [], macros: { proteinas_g: null, carbohidratos_g: null, grasas_g: null }, mensaje: 'No se pudo estimar automáticamente. Ingresa las calorías manualmente.' };
 
-  return {
-    calorias_estimadas:   null,
-    porcion_estimada_g:   null,
-    confianza_pct:        null,
-    fuente_estimacion:    'pendiente',
-    etiquetas_detectadas: [],
-    texto_detectado:      null,
-    alimentos_detectados: [],
-    macros:               { proteinas_g: null, carbohidratos_g: null, grasas_g: null },
-    mensaje:              'No se pudo estimar automáticamente. Ingresa las calorías manualmente.',
-  };
 };
