@@ -48,6 +48,10 @@ export const env = {
 
   // ── OpenAI ────────────────────────────────────────────────
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
+
+  // ── Gemini ───────────────────────────────────────────────
+  GEMINI_API_KEY:  process.env.GEMINI_API_KEY  || '',
+  GEMINI_MODEL:    process.env.GEMINI_MODEL    || 'gemini-1.5-flash',
 };
 
 // Verificar variables críticas al arrancar
@@ -69,4 +73,8 @@ const cloudinaryMissing = [
 
 if (cloudinaryMissing.length > 0) {
   console.warn('\n⚠️ Cloudinary no está configurado. Los endpoints de subida de imágenes fallarán hasta agregar las variables.\n');
+}
+
+if (!process.env.GEMINI_API_KEY) {
+  console.warn('\n⚠️ GEMINI_API_KEY no está configurada. El analizador de calorías por imagen no funcionará.\n');
 }

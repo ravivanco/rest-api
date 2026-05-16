@@ -15,6 +15,8 @@
   },
   "license": "ISC",
   "dependencies": {
+    "@google-cloud/vision": "^5.3.6",
+    "@google/generative-ai": "^0.24.1",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^1.41.3",
     "compression": "^1.8.1",
@@ -32,10 +34,8 @@
     "swagger-ui-express": "^5.0.1",
     "tsconfig-paths": "^4.2.0",
     "uuid": "^10.0.0",
-    "@google-cloud/vision": "^5.3.6",
     "zod": "^3.25.76"
   },
-
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
     "@types/compression": "^1.8.1",
