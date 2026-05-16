@@ -87,3 +87,16 @@ imageCalorieAnalyzerRouter.post(
   validate(AnalyzeImageSchema),
   imageCalorieAnalyzerController.analyze,
 );
+
+/**
+ * @swagger
+ * /image-calorie-analyzer/health:
+ *   get:
+ *     summary: Diagnóstico del módulo de análisis de imágenes
+ *     description: Verifica si Gemini y Google Vision están configurados correctamente.
+ *     tags: [Image Calorie Analyzer]
+ *     responses:
+ *       200:
+ *         description: Estado del módulo
+ */
+imageCalorieAnalyzerRouter.get('/health', imageCalorieAnalyzerController.health);

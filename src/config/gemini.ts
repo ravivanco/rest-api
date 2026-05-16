@@ -10,3 +10,8 @@ import { env } from '@config/env';
 export const geminiClient = env.GEMINI_API_KEY
   ? new GoogleGenerativeAI(env.GEMINI_API_KEY)
   : null;
+
+console.log(
+  `[gemini] Cliente ${geminiClient ? 'inicializado' : 'no disponible'} | `
+  + `key=${env.GEMINI_API_KEY ? 'sí' : 'no'} | model=${env.GEMINI_MODEL}`,
+);
