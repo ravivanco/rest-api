@@ -9,8 +9,8 @@ export interface CalorieEstimationResult {
   mensaje: string;
   etiquetas_detectadas: string[];
   texto_detectado: string | null;
-  alimentos_detectados?: { nombre: string; cantidad_g: number | null; calorias: number }[];
-  macros?: {
+  alimentos_detectados: { nombre: string; cantidad_g: number | null; calorias: number }[];
+  macros: {
     proteinas_g: number | null;
     carbohidratos_g: number | null;
     grasas_g: number | null;
@@ -121,6 +121,18 @@ function parseGeminiJson(rawText: string): GeminiResponse {
   return JSON.parse(candidate) as GeminiResponse;
 }
 
+function normalizeMacros(macros?: GeminiResponse['macros']): {
+  proteinas_g: number | null;
+  carbohidratos_g: number | null;
+  grasas_g: number | null;
+} {
+  return {
+    proteinas_g: macros?.proteinas_g ?? null,
+    carbohidratos_g: macros?.carbohidratos_g ?? null,
+    grasas_g: macros?.grasas_g ?? null,
+  };
+}
+
 async function analyzeWithGemini(imageSource: ImageSource, descripcion: string): Promise<CalorieEstimationResult | null> {
   if (!geminiClient) {
     console.warn(`${TAG} Cliente no inicializado — falta GEMINI_API_KEY en variables de entorno`);
@@ -185,11 +197,7 @@ async function analyzeWithGemini(imageSource: ImageSource, descripcion: string):
         etiquetas_detectadas: [],
         texto_detectado: null,
         alimentos_detectados: parsed.alimentos_detectados ?? [],
-        macros: parsed.macros ?? {
-          proteinas_g: null,
-          carbohidratos_g: null,
-          grasas_g: null,
-        },
+        macros: normalizeMacros(parsed.macros),
       };
     } catch (err) {
       const error = err as Error & { status?: number; errorDetails?: unknown };
@@ -223,7 +231,7 @@ export const estimateFromImage = async (
     etiquetas_detectadas: [],
     texto_detectado: null,
     alimentos_detectados: [],
-    macros: { proteinas_g: null, carbohidratos_g: null, grasas_g: null },
+      macros: normalizeMacros(),
   };
 };
 
@@ -240,7 +248,7 @@ export const estimateFromDescription = async (
       etiquetas_detectadas: [],
       texto_detectado: null,
       alimentos_detectados: [],
-      macros: { proteinas_g: null, carbohidratos_g: null, grasas_g: null },
+      macros: normalizeMacros(),
     };
   }
 
@@ -271,7 +279,7 @@ Estima las calorías y devuelve SOLO este JSON válido sin texto adicional:
       etiquetas_detectadas: [descripcion],
       texto_detectado: descripcion,
       alimentos_detectados: parsed.alimentos_detectados ?? [],
-      macros: parsed.macros ?? { proteinas_g: null, carbohidratos_g: null, grasas_g: null },
+      macros: normalizeMacros(parsed.macros),
     };
   } catch (err) {
     console.error(`${TAG} Error en estimateFromDescription:`, (err as Error).message);
@@ -309,7 +317,7 @@ Estima las calorías y devuelve SOLO este JSON válido sin texto adicional:
           etiquetas_detectadas: [descripcion],
           texto_detectado: descripcion,
           alimentos_detectados: [],
-          macros: { proteinas_g: null, carbohidratos_g: null, grasas_g: null },
+          macros: normalizeMacros(),
         };
       }
     }
@@ -323,7 +331,7 @@ Estima las calorías y devuelve SOLO este JSON válido sin texto adicional:
       etiquetas_detectadas: [],
       texto_detectado: null,
       alimentos_detectados: [],
-      macros: { proteinas_g: null, carbohidratos_g: null, grasas_g: null },
+      macros: normalizeMacros(),
     };
   }
 };
