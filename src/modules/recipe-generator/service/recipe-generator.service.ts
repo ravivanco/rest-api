@@ -1219,15 +1219,42 @@ export const recipeGeneratorService = {
       fecha: string;
     }>(GET_DIAS_SEMANA, [data.id_semana]);
 
-    if (diasResult.rows.length < 5) {
-      throw new AppError(
-        'La semana no tiene los 5 días configurados. Crear los días primero.',
-        409,
-        'INCOMPLETE_WEEK'
-      );
-    }
+    let dias = diasResult.rows;
 
-    const dias = diasResult.rows;
+    if (dias.length < 5) {
+      const fechaInicio = new Date(semana.fecha_inicio_semana);
+      const diasSemana = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
+
+      for (let i = 0; i < 5; i++) {
+        const fecha = new Date(fechaInicio);
+        fecha.setDate(fechaInicio.getDate() + i);
+        const fechaStr = fecha.toISOString().split('T')[0];
+
+        await pool.query(
+          `INSERT INTO dias_plan (id_semana, dia_semana, fecha)
+       VALUES ($1, $2, $3)
+       ON CONFLICT DO NOTHING`,
+          [semana.id_semana, diasSemana[i], fechaStr],
+        );
+      }
+
+      const diasRecreados = await pool.query<{
+        id_dia_plan: number;
+        id_semana: number;
+        dia_semana: string;
+        fecha: string;
+      }>(GET_DIAS_SEMANA, [semana.id_semana]);
+
+      dias = diasRecreados.rows;
+
+      if (dias.length < 5) {
+        throw new AppError(
+          'No se pudieron crear los dias de la semana',
+          500,
+          'DAYS_CREATION_FAILED',
+        );
+      }
+    }
 
     // Paso 3: Obtener los 5 tiempos de comida activos
     const tiemposResult = await pool.query<{
