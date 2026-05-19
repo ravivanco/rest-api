@@ -538,6 +538,31 @@ const buildPrompt = (params: {
     '  * media taza = la mitad de la taza correspondiente',
     '- Cantidades minimas: 5g. Maximas: 500g por ingrediente.',
     '- USA SOLO nombres de ingredientes que aparezcan en el CATALOGO.',
+    '',
+    'TIPO DE PLATO ESPERADO SEGUN TIEMPO DE COMIDA:',
+    '- desayuno: avena, huevos revueltos/cocidos, tostadas, batido,',
+    '  yogur con frutas, pancakes de avena, granola.',
+    '- media_manana o media_tarde (snack): fruta, yogur, nueces,',
+    '  galletas integrales, batido pequeno.',
+    '- almuerzo: proteina principal (pollo/res/cerdo/pescado/huevo) +',
+    '  carbohidrato (arroz/papa/yuca/platano/quinoa) + vegetal/ensalada.',
+    '  Este es el plato mas completo del dia.',
+    '- cena: proteina ligera + vegetal salteado o ensalada.',
+    '  Mas ligero que el almuerzo, bajo en carbohidratos simples.',
+    '',
+    'REGLAS DE COHERENCIA DE PLATO - CRITICAS:',
+    '1. Cada receta debe ser UN SOLO PLATO coherente, no varios platos mezclados.',
+    '2. desayuno dulce (avena, granola, yogur): NO mezclar con huevos fritos ni salados.',
+    '3. desayuno proteico (huevos): NO mezclar con frutas dulces encima.',
+    '4. TODOS los ingredientes del JSON deben usarse en la preparacion, sin excepcion.',
+    '5. Si un ingrediente no aparece en la preparacion, NO lo incluyas en los ingredientes.',
+    '6. La preparacion debe describir exactamente los ingredientes listados, no otros imaginarios.',
+    '7. NUNCA uses ingredientes genericos como frutas frescas, verduras mixtas o especias.',
+    '   Usa nombres especificos del catalogo: manzana, zanahoria, oregano.',
+    '8. Para frutas, elige UNA fruta especifica del catalogo, no un concepto generico.',
+    '9. Antes de responder, verifica: cada ingrediente del JSON aparece en modo_preparacion.',
+    '   Si no aparece, eliminalo de los ingredientes.',
+    '',
     '- Receta practica para empleado de oficina en Ecuador.',
     '- Pasos numerados en el modo de preparacion.',
     '',
@@ -900,7 +925,8 @@ export const recipeGeneratorService = {
       throw new ValidationError('No hay alimentos disponibles para generar la receta');
     }
 
-    const catalogoNombres = alimentosDetalleResult.rows.map(row => row.nombre);
+    const catalogoResult = await pool.query<{ nombre: string }>(GET_CATALOGO_NOMBRES);
+    const catalogoNombres = catalogoResult.rows.map(row => row.nombre);
 
     let caloriasObjetivo = data.calorias_objetivo;
     if (!caloriasObjetivo) {
