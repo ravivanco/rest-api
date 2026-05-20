@@ -881,6 +881,13 @@ const assertTiempoComidaExiste = async (idTiempoComida: number): Promise<void> =
 
 export const recipeGeneratorService = {
   async generateRecipe(data: GenerateRecipeDto): Promise<GeneratedRecipeResult> {
+    console.log('[generateRecipe] data recibida:', JSON.stringify({
+      id_perfil: data.id_perfil,
+      id_evaluacion: data.id_evaluacion,
+      tiempo_comida_nombre: data.tiempo_comida_nombre,
+      calorias_objetivo: data.calorias_objetivo,
+    }));
+
     const perfilResult = await pool.query<PerfilEvaluacionRow>(
       GET_PERFIL_EVALUACION,
       [data.id_perfil, data.id_evaluacion],
@@ -891,6 +898,11 @@ export const recipeGeneratorService = {
     }
 
     const perfil = normalizePerfil(perfilResult.rows[0]);
+
+    console.log('[generateRecipe] perfil obtenido:', JSON.stringify({
+      calorias_diarias_calculadas: perfil.calorias_diarias_calculadas,
+      imc: perfil.imc,
+    }));
 
     const [condicionesResult, preferenciasResult] = await Promise.all([
       pool.query<CondicionRow>(GET_CONDICIONES, [data.id_perfil]),
