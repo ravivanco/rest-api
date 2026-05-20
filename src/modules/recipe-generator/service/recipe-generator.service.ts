@@ -165,6 +165,22 @@ const TIEMPO_COMIDA_FACTORES: Record<TiempoComidaNombre, number> = {
   cena: 0.2,
 };
 
+// Mapea el nombre de la BD al TiempoComidaNombre del sistema
+const mapearNombreTiempo = (nombre: string): TiempoComidaNombre => {
+  const normalized = normalizeText(nombre);
+  const mapa: Record<string, TiempoComidaNombre> = {
+    'desayuno': 'desayuno',
+    'refrigerio manana': 'media_manana',
+    'refrigerio mañana': 'media_manana',
+    'media manana': 'media_manana',
+    'almuerzo': 'almuerzo',
+    'refrigerio tarde': 'media_tarde',
+    'media tarde': 'media_tarde',
+    'cena': 'cena',
+  };
+  return mapa[normalized] ?? 'almuerzo';
+};
+
 const normalizeText = (value: string): string =>
   value
     .trim()
@@ -1356,7 +1372,10 @@ export const recipeGeneratorService = {
           );
 
           const caloriasDiarias = perfilEvalResult.rows[0]?.calorias_diarias_calculadas ?? 2000;
-          const caloriasObjetivo = Math.round(caloriasDiarias * TIEMPO_COMIDA_FACTORES[tiempo.nombre as TiempoComidaNombre]);
+          const tiempoNombre = mapearNombreTiempo(tiempo.nombre);
+          const caloriasObjetivo = Math.round(
+            caloriasDiarias * TIEMPO_COMIDA_FACTORES[tiempoNombre]
+          );
 
           let recipeResult: GeneratedRecipeResult | null = null;
           let reintentos = 0;
@@ -1367,7 +1386,7 @@ export const recipeGeneratorService = {
               id_perfil: idPerfil,
               id_evaluacion: data.id_evaluacion,
               id_tiempo_comida: tiempo.id_tiempo_comida,
-              tiempo_comida_nombre: tiempo.nombre as TiempoComidaNombre,
+              tiempo_comida_nombre: tiempoNombre,
               calorias_objetivo: caloriasObjetivo,
               id_dia_plan: dia.id_dia_plan,
             };
