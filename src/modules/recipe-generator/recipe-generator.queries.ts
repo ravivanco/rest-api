@@ -102,7 +102,8 @@ export const FIND_CACHED_PLATO = `
       SELECT 1
       FROM menus_diarios md
       JOIN dias_plan dp ON dp.id_dia_plan = md.id_dia_plan
-      JOIN planes_nutricionales pn ON pn.id_plan = dp.id_plan
+      JOIN planes_semanales ps ON ps.id_semana = dp.id_semana
+      JOIN planes_nutricionales pn ON pn.id_plan = ps.id_plan
       WHERE md.id_plato = p.id_plato
         AND pn.id_perfil = $4
         AND dp.fecha >= CURRENT_DATE - INTERVAL '14 days'
