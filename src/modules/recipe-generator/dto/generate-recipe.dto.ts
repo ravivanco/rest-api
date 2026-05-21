@@ -12,6 +12,7 @@ export interface GenerateRecipeDto {
   tiempo_comida_nombre: TiempoComidaNombre;
   calorias_objetivo?: number;
   id_dia_plan?: number;
+  forzar_cache?: boolean;
 }
 
 export interface GenerateGenericDto {

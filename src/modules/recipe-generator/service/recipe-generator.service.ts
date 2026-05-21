@@ -44,6 +44,8 @@ const OPENAI_TEMPERATURE = 0.7;
 const OPENAI_MAX_TOKENS = 1200;
 const MAX_CALORIAS_PLATO = 32767;
 const MAX_INTENTOS_GPT = 3;
+const MIN_RECETAS_PARA_CACHE = 3;
+const PROBABILIDAD_CACHE = 0.70;
 
 const APTITUD_A_INSTRUCCION: Record<number, string> = {
   1: 'apta para pacientes en general sin restricciones especiales',
@@ -179,6 +181,52 @@ const mapearNombreTiempo = (nombre: string): TiempoComidaNombre => {
     'cena': 'cena',
   };
   return mapa[normalized] ?? 'almuerzo';
+};
+
+const resolverNombreUnico = async (nombre: string): Promise<string> => {
+  const existeResult = await pool.query<{ count: string }>(
+    'SELECT COUNT(*)::text AS count FROM platos WHERE nombre = $1',
+    [nombre],
+  );
+
+  if (parseInt(existeResult.rows[0].count) === 0) {
+    return nombre;
+  }
+
+  const sufijoResult = await pool.query<{ nombre: string }>(
+    `SELECT nombre FROM platos
+     WHERE nombre LIKE $1
+     ORDER BY LENGTH(nombre) DESC, nombre DESC
+     LIMIT 1`,
+    [`${nombre} v%`],
+  );
+
+  if (sufijoResult.rows.length === 0) {
+    return `${nombre} v2`;
+  }
+
+  const ultimoNombre = sufijoResult.rows[0].nombre;
+  const match = ultimoNombre.match(/ v(\d+)$/);
+  const ultimoNumero = match ? parseInt(match[1]) : 1;
+  return `${nombre} v${ultimoNumero + 1}`;
+};
+
+const contarRecetasCompatibles = async (
+  idTiempoComida: number,
+  caloriasObjetivo: number,
+  idPerfil: number,
+): Promise<number> => {
+  const tolerancia = 80;
+  const result = await pool.query<{ count: string }>(
+    `SELECT COUNT(*)::text AS count
+     FROM platos p
+     WHERE p.id_tiempo_comida = $1
+       AND p.activo = true
+       AND p.generado_por_ia = true
+       AND p.calorias_totales BETWEEN $2 AND $3`,
+    [idTiempoComida, caloriasObjetivo - tolerancia, caloriasObjetivo + tolerancia],
+  );
+  return parseInt(result.rows[0].count);
 };
 
 const normalizeText = (value: string): string =>
@@ -566,6 +614,20 @@ const buildPrompt = (params: {
     '- cena: proteina ligera + vegetal salteado o ensalada.',
     '  Mas ligero que el almuerzo, bajo en carbohidratos simples.',
     '',
+    'IDENTIDAD CULINARIA — IMPORTANTE:',
+    'Las recetas son para empleados ecuatorianos. Combina recetas internacionales',
+    'con platos tipicos ecuatorianos usando ingredientes del catalogo.',
+    'Ejemplos de platos ecuatorianos que puedes generar:',
+    '- Desayuno: tigrillo (platano verde + huevo + queso), colada de avena,',
+    '  pan con queso y cafe, batido de mora, platano con huevo.',
+    '- Almuerzo: seco de pollo con arroz, arroz con menestra y carne,',
+    '  sopa de verduras, caldo de pollo con papa y zanahoria.',
+    '- Cena: crema de verduras, arroz con atun, ensalada con proteina.',
+    '- Snack: batido de frutas tropicales, platano maduro con queso,',
+    '  yogur con frutas ecuatorianas (mora, taxo, maracuya).',
+    'No es obligatorio generar siempre platos ecuatorianos —',
+    'alterna entre cocina ecuatoriana e internacional para dar variedad.',
+    '',
     'REGLAS DE COHERENCIA DE PLATO - CRITICAS:',
     '1. Cada receta debe ser UN SOLO PLATO coherente, no varios platos mezclados.',
     '2. desayuno dulce (avena, granola, yogur): NO mezclar con huevos fritos ni salados.',
@@ -637,6 +699,20 @@ const buildPromptGenerico = (params: {
     '  Este es el plato mas completo del dia.',
     '- cena: proteina ligera + vegetal salteado o ensalada.',
     '  Mas ligero que el almuerzo, bajo en carbohidratos simples.',
+    '',
+    'IDENTIDAD CULINARIA — IMPORTANTE:',
+    'Las recetas son para empleados ecuatorianos. Combina recetas internacionales',
+    'con platos tipicos ecuatorianos usando ingredientes del catalogo.',
+    'Ejemplos de platos ecuatorianos que puedes generar:',
+    '- Desayuno: tigrillo (platano verde + huevo + queso), colada de avena,',
+    '  pan con queso y cafe, batido de mora, platano con huevo.',
+    '- Almuerzo: seco de pollo con arroz, arroz con menestra y carne,',
+    '  sopa de verduras, caldo de pollo con papa y zanahoria.',
+    '- Cena: crema de verduras, arroz con atun, ensalada con proteina.',
+    '- Snack: batido de frutas tropicales, platano maduro con queso,',
+    '  yogur con frutas ecuatorianas (mora, taxo, maracuya).',
+    'No es obligatorio generar siempre platos ecuatorianos —',
+    'alterna entre cocina ecuatoriana e internacional para dar variedad.',
     '',
     'RESTRICCIONES CRITICAS - OBLIGATORIAS:',
     restriccionesTexto,
@@ -973,6 +1049,7 @@ export const recipeGeneratorService = {
     );
 
     if (cachedPlato) {
+      console.log(`[generateRecipe] Cache hit: ${cachedPlato.nombre} (forzar_cache=${data.forzar_cache})`);
       if (data.id_dia_plan) {
         const menuResult = await pool.query<{ id_menu_diario: number }>(
           INSERT_MENU_DIARIO,
@@ -988,6 +1065,10 @@ export const recipeGeneratorService = {
       }
 
       return cachedPlato;
+    }
+
+    if (data.forzar_cache) {
+      console.log('[generateRecipe] Cache miss con forzar_cache=true, generando con GPT');
     }
 
     const { gptRecipe, ingredientesResueltos } = await generarRecetaConReintentos(() => buildPrompt({
@@ -1020,10 +1101,12 @@ export const recipeGeneratorService = {
     try {
       await client.query('BEGIN');
 
+      const nombreFinal = await resolverNombreUnico(gptRecipe.nombre);
+
       const platoResult = await client.query<{ id_plato: number }>(
         INSERT_PLATO,
         [
-          gptRecipe.nombre,
+          nombreFinal,
           gptRecipe.descripcion ?? null,
           gptRecipe.modo_preparacion,
           // enlace_video
@@ -1055,7 +1138,7 @@ export const recipeGeneratorService = {
 
       return {
         id_plato: idPlato,
-        nombre: gptRecipe.nombre,
+        nombre: nombreFinal,
         descripcion: gptRecipe.descripcion ?? null,
         calorias_totales: caloriasTotales,
         tiempo_preparacion_min: gptRecipe.tiempo_preparacion_min ?? null,
@@ -1336,6 +1419,7 @@ export const recipeGeneratorService = {
 
     const resultadosDias: DiaPlanResult[] = [];
     const platosAsignadosPorTiempo = new Map<number, Set<number>>();
+    const platosUsadosEnSemana = new Set<number>();
 
     // Inicializar map de tiempos con IDs de platos ya asignados
     for (const tiempo of tiempos) {
@@ -1363,19 +1447,32 @@ export const recipeGeneratorService = {
           });
 
           platosAsignadosPorTiempo.get(tiempo.id_tiempo_comida)!.add(existingMenu.id_plato);
+          platosUsadosEnSemana.add(existingMenu.id_plato);
         } else {
-          // Generar o regenerar receta
-          // Obtener calorías diarias de la evaluación del perfil
-          const perfilEvalResult = await pool.query<{ calorias_diarias_calculadas: number | null }>(
-            'SELECT calorias_diarias_calculadas FROM evaluaciones_clinicas WHERE id_evaluacion = $1',
-            [data.id_evaluacion]
+          const perfilEvalResult = await pool.query<{
+            calorias_diarias_calculadas: number | null;
+          }>(
+            `SELECT calorias_diarias_calculadas
+     FROM evaluaciones_clinicas WHERE id_evaluacion = $1`,
+            [data.id_evaluacion],
           );
 
-          const caloriasDiarias = perfilEvalResult.rows[0]?.calorias_diarias_calculadas ?? 2000;
+          const caloriasDiarias =
+            perfilEvalResult.rows[0]?.calorias_diarias_calculadas ?? 2000;
           const tiempoNombre = mapearNombreTiempo(tiempo.nombre);
           const caloriasObjetivo = Math.round(
-            caloriasDiarias * TIEMPO_COMIDA_FACTORES[tiempoNombre]
+            Number(caloriasDiarias) * TIEMPO_COMIDA_FACTORES[tiempoNombre],
           );
+
+          const totalCompatibles = await contarRecetasCompatibles(
+            tiempo.id_tiempo_comida,
+            caloriasObjetivo,
+            idPerfil,
+          );
+
+          const usarCache =
+            totalCompatibles >= MIN_RECETAS_PARA_CACHE &&
+            Math.random() < PROBABILIDAD_CACHE;
 
           let recipeResult: GeneratedRecipeResult | null = null;
           let reintentos = 0;
@@ -1389,16 +1486,16 @@ export const recipeGeneratorService = {
               tiempo_comida_nombre: tiempoNombre,
               calorias_objetivo: caloriasObjetivo,
               id_dia_plan: dia.id_dia_plan,
+              forzar_cache: usarCache,
             };
 
             recipeResult = await this.generateRecipe(recipeData);
 
-            // Verificar regla de variedad
-            const platoYaAsignado = platosAsignadosPorTiempo
-              .get(tiempo.id_tiempo_comida)!
-              .has(recipeResult.id_plato);
+            const platoYaUsado =
+              platosAsignadosPorTiempo.get(tiempo.id_tiempo_comida)!.has(recipeResult.id_plato) ||
+              platosUsadosEnSemana.has(recipeResult.id_plato);
 
-            if (platoYaAsignado && reintentos < maxReintentos) {
+            if (platoYaUsado && reintentos < maxReintentos) {
               recipeResult = null;
               reintentos++;
             }
@@ -1406,16 +1503,14 @@ export const recipeGeneratorService = {
 
           if (!recipeResult) {
             throw new AppError(
-              'No se pudo generar receta para el slot',
+              'No se pudo generar receta unica para el slot',
               500,
-              'RECIPE_GENERATION_FAILED'
+              'RECIPE_GENERATION_FAILED',
             );
           }
 
           slotsGenerados++;
-          if (recipeResult.uso_gpt) {
-            llamadasGpt++;
-          }
+          if (recipeResult.uso_gpt) llamadasGpt++;
 
           menusDelDia.push({
             id_menu_diario: recipeResult.id_menu_diario ?? 0,
@@ -1428,6 +1523,7 @@ export const recipeGeneratorService = {
           });
 
           platosAsignadosPorTiempo.get(tiempo.id_tiempo_comida)!.add(recipeResult.id_plato);
+          platosUsadosEnSemana.add(recipeResult.id_plato);
         }
       }
 
