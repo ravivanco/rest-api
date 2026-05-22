@@ -1457,12 +1457,14 @@ export const recipeGeneratorService = {
             [data.id_evaluacion],
           );
 
-          const caloriasDiarias =
-            perfilEvalResult.rows[0]?.calorias_diarias_calculadas ?? 2000;
-          const tiempoNombre = mapearNombreTiempo(tiempo.nombre);
-          const caloriasObjetivo = Math.round(
-            Number(caloriasDiarias) * TIEMPO_COMIDA_FACTORES[tiempoNombre],
+          const caloriasDiarias = Number(
+            perfilEvalResult.rows[0]?.calorias_diarias_calculadas ?? 2000,
           );
+          const tiempoNombre = mapearNombreTiempo(tiempo.nombre);
+          const factor = TIEMPO_COMIDA_FACTORES[tiempoNombre];
+          const caloriasObjetivo = Number.isFinite(factor)
+            ? Math.round(caloriasDiarias * factor)
+            : 400;
 
           const totalCompatibles = await contarRecetasCompatibles(
             tiempo.id_tiempo_comida,

@@ -187,6 +187,11 @@ export const INSERT_MENU_DIARIO = `
     calorias_aportadas
   )
   VALUES ($1, $2, $3, $4)
+  ON CONFLICT (id_dia_plan, id_tiempo_comida)
+  DO UPDATE SET
+    id_plato = EXCLUDED.id_plato,
+    calorias_aportadas = EXCLUDED.calorias_aportadas,
+    updated_at = NOW()
   RETURNING id_menu_diario
 `;
 
