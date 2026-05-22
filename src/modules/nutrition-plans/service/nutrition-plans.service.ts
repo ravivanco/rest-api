@@ -267,7 +267,73 @@ export const nutritionPlansService = {
     const plan = await nutritionPlansRepository.findById(planId);
     if (!plan) throw new NotFoundError('Plan nutricional');
 
-    return nutritionPlansRepository.findWeeksByPlan(planId);
+    const rows = await nutritionPlansRepository.findWeeksWithMenusByPlan(planId);
+
+    if (rows.length === 0) {
+      return [];
+    }
+
+    const semanasMap = new Map<number, {
+      id_semana: number;
+      numero: number;
+      fecha_inicio_semana: string;
+      fecha_fin_semana: string;
+      dias: Map<number, {
+        id_dia_plan: number;
+        dia_semana: string;
+        fecha: string;
+        menus: Array<{
+          id_menu_diario: number;
+          id_tiempo_comida: number;
+          tiempo_comida: string;
+          id_plato: number;
+          nombre_plato: string;
+          calorias_aportadas: number;
+        }>;
+      }>;
+    }>();
+
+    for (const row of rows) {
+      if (!semanasMap.has(row.id_semana)) {
+        semanasMap.set(row.id_semana, {
+          id_semana: row.id_semana,
+          numero: row.numero,
+          fecha_inicio_semana: row.fecha_inicio_semana,
+          fecha_fin_semana: row.fecha_fin_semana,
+          dias: new Map(),
+        });
+      }
+
+      const semana = semanasMap.get(row.id_semana)!;
+
+      if (row.id_dia_plan && !semana.dias.has(row.id_dia_plan)) {
+        semana.dias.set(row.id_dia_plan, {
+          id_dia_plan: row.id_dia_plan,
+          dia_semana: row.dia_semana ?? '',
+          fecha: row.fecha ?? '',
+          menus: [],
+        });
+      }
+
+      if (row.id_menu_diario && row.id_dia_plan) {
+        const dia = semana.dias.get(row.id_dia_plan);
+        if (dia) {
+          dia.menus.push({
+            id_menu_diario: row.id_menu_diario,
+            id_tiempo_comida: row.id_tiempo_comida ?? 0,
+            tiempo_comida: row.tiempo_comida ?? '',
+            id_plato: row.id_plato ?? 0,
+            nombre_plato: row.nombre_plato ?? '',
+            calorias_aportadas: row.calorias_aportadas ?? 0,
+          });
+        }
+      }
+    }
+
+    return Array.from(semanasMap.values()).map(semana => ({
+      ...semana,
+      dias: Array.from(semana.dias.values()),
+    }));
   },
 
 

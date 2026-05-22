@@ -49,6 +49,22 @@ export interface EjercicioDiarioRow {
   intensidad?:         string;
 }
 
+export interface WeekPlanMenuRow {
+  id_semana:           number;
+  numero:              number;
+  fecha_inicio_semana: string;
+  fecha_fin_semana:    string;
+  id_dia_plan:         number | null;
+  dia_semana:          string | null;
+  fecha:               string | null;
+  id_menu_diario:      number | null;
+  id_tiempo_comida:    number | null;
+  tiempo_comida:       string | null;
+  id_plato:            number | null;
+  nombre_plato:        string | null;
+  calorias_aportadas:  number | null;
+}
+
 export const nutritionPlansRepository = {
 
   /**
@@ -237,6 +253,38 @@ export const nutritionPlansRepository = {
       `SELECT * FROM planes_semanales
        WHERE  id_plan = $1
        ORDER  BY numero ASC`,
+      [planId],
+    );
+    return result.rows;
+  },
+
+
+  /**
+   * Lista semanas con dias y menus del plan.
+   */
+  async findWeeksWithMenusByPlan(planId: number): Promise<WeekPlanMenuRow[]> {
+    const result = await pool.query<WeekPlanMenuRow>(
+      `SELECT
+         ps.id_semana,
+         ps.numero,
+         ps.fecha_inicio_semana,
+         ps.fecha_fin_semana,
+         dp.id_dia_plan,
+         dp.dia_semana,
+         dp.fecha,
+         md.id_menu_diario,
+         md.id_tiempo_comida,
+         tc.nombre AS tiempo_comida,
+         md.id_plato,
+         p.nombre AS nombre_plato,
+         md.calorias_aportadas
+       FROM planes_semanales ps
+       LEFT JOIN dias_plan dp ON dp.id_semana = ps.id_semana
+       LEFT JOIN menus_diarios md ON md.id_dia_plan = dp.id_dia_plan
+       LEFT JOIN tiempos_comida tc ON tc.id_tiempo_comida = md.id_tiempo_comida
+       LEFT JOIN platos p ON p.id_plato = md.id_plato
+       WHERE ps.id_plan = $1
+       ORDER BY ps.numero ASC, dp.fecha ASC, tc.orden ASC`,
       [planId],
     );
     return result.rows;

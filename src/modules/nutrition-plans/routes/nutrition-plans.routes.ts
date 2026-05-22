@@ -303,6 +303,42 @@ nutritionPlansRouter.post(
   nutritionPlansController.createWeek,
 );
 
+/**
+ * @swagger
+ * /nutrition-plans/{planId}/weeks:
+ *   get:
+ *     summary: Lista semanas, dias y menus del plan
+ *     tags: [Nutrition Plans]
+ *     parameters:
+ *       - in: path
+ *         name: planId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Semanas del plan con dias y menus
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 - id_semana: 2
+ *                   numero: 1
+ *                   fecha_inicio_semana: "2026-05-19"
+ *                   fecha_fin_semana: "2026-05-23"
+ *                   dias:
+ *                     - id_dia_plan: 1
+ *                       dia_semana: lunes
+ *                       fecha: "2026-05-19"
+ *                       menus:
+ *                         - id_menu_diario: 1
+ *                           id_tiempo_comida: 1
+ *                           tiempo_comida: Desayuno
+ *                           id_plato: 44
+ *                           nombre_plato: Avena con Arandanos y Yogur
+ *                           calorias_aportadas: 551
+ */
+
 nutritionPlansRouter.get(
   '/:planId/weeks',
   authenticate,
