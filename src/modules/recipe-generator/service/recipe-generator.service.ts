@@ -474,6 +474,9 @@ const resolverIngredientes = async (
   const totalGpt = ingredientesGpt.length;
   const totalResueltos = resueltos.length;
   const porcentajeExito = totalGpt > 0 ? totalResueltos / totalGpt : 0;
+  console.warn(`[resolverIngredientes] GPT envió: ${JSON.stringify(ingredientesGpt.map(i => i.nombre_ingrediente))}`);
+  console.warn(`[resolverIngredientes] Sin match: ${JSON.stringify(noEncontrados)}`);
+  console.warn(`[resolverIngredientes] Resueltos: ${totalResueltos}/${totalGpt}`);
 
   if (totalResueltos === 0 || porcentajeExito < 0.5) {
     throw new IngredientesNoResueltosError(
@@ -1488,18 +1491,27 @@ export const recipeGeneratorService = {
               tiempo_comida_nombre: tiempoNombre,
               calorias_objetivo: caloriasObjetivo,
               id_dia_plan: dia.id_dia_plan,
-              forzar_cache: usarCache,
+              // En reintentos forzar GPT para romper el loop de caché
+              forzar_cache: reintentos === 0 ? usarCache : false,
             };
 
-            recipeResult = await this.generateRecipe(recipeData);
+            const candidato = await this.generateRecipe(recipeData);
 
+            // Verificar variedad ANTES de aceptar el resultado
             const platoYaUsado =
-              platosAsignadosPorTiempo.get(tiempo.id_tiempo_comida)!.has(recipeResult.id_plato) ||
-              platosUsadosEnSemana.has(recipeResult.id_plato);
+              platosAsignadosPorTiempo.get(tiempo.id_tiempo_comida)!.has(candidato.id_plato);
 
-            if (platoYaUsado && reintentos < maxReintentos) {
-              recipeResult = null;
-              reintentos++;
+            if (platoYaUsado) {
+              if (reintentos < maxReintentos) {
+                reintentos++;
+                // forzar_cache=false en próximo intento para que GPT genere algo distinto
+                continue;
+              }
+              // Agotamos reintentos — aceptar el duplicado como último recurso
+              console.warn(`[generateWeekPlan] Duplicado aceptado por falta de opciones: ${candidato.nombre}`);
+              recipeResult = candidato;
+            } else {
+              recipeResult = candidato;
             }
           }
 
