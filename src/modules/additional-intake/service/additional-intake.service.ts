@@ -1,6 +1,6 @@
 import { additionalIntakeRepository } from '../repository/additional-intake.repository';
 import cloudinary from '@config/cloudinary';
-import { calorieControlRepository }   from '../../calorie-control/repository/calorie-control.repository';
+import { calorieControlRepository, ControlCaloricoRow }   from '../../calorie-control/repository/calorie-control.repository';
 import { estimateFromDescription, estimateFromImage } from '../../../infrastructure/calorie-estimator';
 import {
   CreateAdditionalIntakeDto,
@@ -199,16 +199,6 @@ export const additionalIntakeService = {
       );
     }
 
-    // Verificar que sea del día actual (no se puede confirmar consumos de días pasados)
-    // Usamos la fecha de la base de datos para evitar desajustes de zona horaria (UTC vs Local)
-    const dbDateResult = await pool.query<{ hoy: string }>('SELECT CURRENT_DATE::text as hoy');
-    const hoy = dbDateResult.rows[0].hoy;
-    if (consumo.fecha !== hoy) {
-      throw new BusinessRuleError(
-        `No puedes confirmar consumos de días anteriores. Este consumo es del ${consumo.fecha}.`
-      );
-    }
-
     // 1. Confirmar el consumo con las calorías finales
     // Si la imagen existe y está en carpeta temporal, intentamos moverla a la carpeta permanente
     if (consumo.imagen_url) {
@@ -244,21 +234,30 @@ export const additionalIntakeService = {
       data.calorias_estimadas,
     );
 
-    // 2. Recalcular calorías adicionales totales del día
-    const totalAdicionalHoy = await additionalIntakeRepository.getTodayConfirmedCalories(perfilId);
+    // 2. Recalcular calorías adicionales totales para la fecha del consumo
+    const totalAdicionalDia = await additionalIntakeRepository.getConfirmedCaloriesByDate(perfilId, consumo.fecha);
 
-    // 3. Actualizar el control calórico del día
+    // 3. Actualizar el control calórico correspondiente al día del consumo
     let controlActualizado = null;
-    const controlHoy = await calorieControlRepository.findToday(perfilId);
+    const controlResult = await pool.query<ControlCaloricoRow>(
+      `SELECT * FROM control_calorico WHERE id_perfil = $1 AND fecha = $2`,
+      [perfilId, consumo.fecha]
+    );
+    const controlDia = controlResult.rows[0] ?? null;
 
-    if (controlHoy) {
-      controlActualizado = await calorieControlRepository.updateAdditionalCalories(
-        perfilId,
-        totalAdicionalHoy,
+    if (controlDia) {
+      const updateResult = await pool.query<ControlCaloricoRow>(
+        `UPDATE control_calorico
+         SET calorias_consumidas_adicional = $3,
+             updated_at                    = NOW()
+         WHERE id_perfil = $1 AND fecha = $2
+         RETURNING *`,
+        [perfilId, consumo.fecha, totalAdicionalDia]
       );
+      controlActualizado = updateResult.rows[0];
 
       // Vincular el consumo al control calórico
-      await additionalIntakeRepository.linkToControl(consumoId, controlHoy.id_control);
+      await additionalIntakeRepository.linkToControl(consumoId, controlDia.id_control);
     }
 
     // 4. RN-05: Si hay exceso calórico, sugerir ejercicios compensatorios

@@ -189,18 +189,18 @@ export const additionalIntakeRepository = {
 
 
   /**
-   * Calcula el total de calorías adicionales confirmadas hoy.
+   * Calcula el total de calorías adicionales confirmadas para una fecha específica.
    * Se usa para actualizar el control calórico.
    */
-  async getTodayConfirmedCalories(perfilId: number): Promise<number> {
+  async getConfirmedCaloriesByDate(perfilId: number, fecha: string | Date): Promise<number> {
     const result = await pool.query<{ total: string }>(
       `SELECT COALESCE(SUM(calorias_estimadas), 0) AS total
        FROM   consumos_adicionales
        WHERE  id_perfil       = $1
-         AND  fecha           = CURRENT_DATE
+         AND  fecha           = $2
          AND  confirmado      = TRUE
          AND  calorias_sumadas = TRUE`,
-      [perfilId],
+      [perfilId, fecha],
     );
     return parseInt(result.rows[0].total);
   },
