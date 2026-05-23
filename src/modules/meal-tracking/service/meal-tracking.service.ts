@@ -1,5 +1,6 @@
 import { mealTrackingRepository }    from '../repository/meal-tracking.repository';
 import { calorieControlRepository }  from '../../calorie-control/repository/calorie-control.repository';
+import { nutritionPlansRepository }  from '../../nutrition-plans/repository/nutrition-plans.repository';
 import { TrackMealDto }              from '../dto/meal-tracking.dto';
 import { assertIsToday }             from '@utils/date-validator';
 import { NotFoundError, ForbiddenError } from '@errors/AppError';
@@ -91,44 +92,87 @@ export const mealTrackingService = {
    * Obtiene las comidas del día actual del paciente con su estado de cumplimiento.
    */
   async getTodayMeals(perfilId: number) {
-    const menus = await mealTrackingRepository.findTodayByPerfil(perfilId);
+    const activePlan = await nutritionPlansRepository.findActivePlanComplete(perfilId);
 
-    if (menus.length === 0) {
+    if (!activePlan) {
       return {
-        tiene_menus_hoy: false,
-        mensaje: 'No tienes menús programados para hoy.',
-        menus: [],
-        resumen: null,
+        tiene_plan_activo: false,
+        mensaje: 'No tienes un plan nutricional activo en este momento.',
+        semanas: [],
+        dias: [],
       };
     }
 
-    const realizadas   = menus.filter(m => m.realizado === true).length;
-    const noRealizadas = menus.filter(m => m.realizado === false && m.id_seguimiento_comida).length;
-    const pendientes   = menus.filter(m => !m.id_seguimiento_comida).length;
+    const trackingRows = await pool.query<{
+      id_menu_diario: number;
+      realizado: boolean;
+      hora_registro: string | null;
+    }>(
+      `SELECT id_menu_diario, realizado, hora_registro FROM seguimiento_comidas WHERE id_perfil = $1`,
+      [perfilId],
+    );
+
+    const trackingMap = new Map<number, { realizado: boolean; hora_registro: string | null }>();
+    for (const row of trackingRows.rows) {
+      trackingMap.set(row.id_menu_diario, {
+        realizado: row.realizado,
+        hora_registro: row.hora_registro,
+      });
+    }
+
+    const hoy = new Date().toISOString().split('T')[0];
+
+    // Encontrar la semana actual en base al rango de fechas
+    const semanaActual = activePlan.semanas.find(s =>
+      s.semana.fecha_inicio_semana <= hoy && s.semana.fecha_fin_semana >= hoy
+    );
+
+    const semanasEstructuradas = activePlan.semanas.map(s => {
+      const esSemanaActual = s.semana.id_semana === (semanaActual?.semana.id_semana ?? activePlan.semanas[0]?.semana.id_semana);
+      return {
+        id_semana:           s.semana.id_semana,
+        id_plan:             s.semana.id_plan,
+        numero:              s.semana.numero,
+        fecha_inicio_semana: s.semana.fecha_inicio_semana,
+        fecha_fin_semana:    s.semana.fecha_fin_semana,
+        es_semana_actual:    esSemanaActual,
+        dias: s.dias.map(d => ({
+          id_dia_plan: d.dia.id_dia_plan,
+          id_semana:   d.dia.id_semana,
+          dia_semana:  d.dia.dia_semana,
+          fecha:       d.dia.fecha,
+          es_hoy:      d.dia.fecha === hoy,
+          puede_registrar: d.dia.fecha === hoy,
+          menus: d.menus.map(m => {
+            const track = trackingMap.get(m.id_menu_diario);
+            return {
+              id_menu_diario:     m.id_menu_diario,
+              id_tiempo_comida:   m.id_tiempo_comida,
+              tiempo_comida:      m.nombre_tiempo ?? '',
+              nombre_tiempo:      m.nombre_tiempo ?? '',
+              id_plato:           m.id_plato,
+              nombre_plato:       m.nombre_plato ?? '',
+              calorias_aportadas: m.calorias_aportadas,
+              estado:
+                !track ? 'pendiente' :
+                track.realizado ? 'realizado' : 'no_realizado',
+              hora_registro:      track ? track.hora_registro : null,
+            };
+          }),
+        })),
+      };
+    });
+
+    // Obtener los días de la semana activa/actual
+    const semanaActivaEstructurada = semanasEstructuradas.find(s => s.es_semana_actual) ?? semanasEstructuradas[0];
+    const diasActivos = semanaActivaEstructurada ? semanaActivaEstructurada.dias : [];
 
     return {
-      tiene_menus_hoy: true,
-      fecha:           new Date().toISOString().split('T')[0],
-      menus: menus.map(m => ({
-        id_menu_diario:    m.id_menu_diario,
-        nombre_tiempo:     m.nombre_tiempo,
-        hora_inicio:       m.hora_inicio,
-        nombre_plato:      m.nombre_plato,
-        calorias_aportadas: m.calorias_aportadas,
-        estado:
-          !m.id_seguimiento_comida ? 'pendiente' :
-          m.realizado ? 'realizado' : 'no_realizado',
-        hora_registro: m.hora_registro,
-        // RN-03: puede registrar porque ya se validó que la fecha es hoy
-        puede_registrar: true,
-      })),
-      resumen: {
-        total:        menus.length,
-        realizadas,
-        no_realizadas: noRealizadas,
-        pendientes,
-        pct_cumplimiento: Math.round((realizadas / menus.length) * 100),
-      },
+      tiene_plan_activo: true,
+      plan:              activePlan.plan,
+      semana_actual:     semanaActual?.semana ?? activePlan.semanas[0]?.semana ?? null,
+      semanas:           semanasEstructuradas,
+      dias:              diasActivos, // Para la estructura data -> dias -> menus del móvil
     };
   },
 

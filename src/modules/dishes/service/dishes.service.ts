@@ -25,7 +25,20 @@ export const dishesService = {
   async getById(id: number) {
     const result = await dishesRepository.findByIdWithIngredients(id);
     if (!result) throw new NotFoundError('Plato');
-    return result;
+    
+    const platoConAliases = {
+      ...result.plato,
+      nombre_plato:      result.plato.nombre,
+      calorias:          result.plato.calorias_totales,
+      descripcion_plato: result.plato.descripcion,
+      receta:            result.plato.descripcion,
+      pasos_preparacion: result.plato.modo_preparacion,
+    };
+
+    return {
+      ...result,
+      plato: platoConAliases,
+    };
   },
 
 

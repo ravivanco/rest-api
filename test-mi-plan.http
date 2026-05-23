@@ -1,0 +1,48 @@
+### ARCHIVO DE PRUEBAS PARA EL MÓDULO "MI PLAN" DE LA APP MÓVIL
+### Puedes usar la extensión "REST Client" o "Thunder Client" en VS Code
+
+@baseUrl = http://localhost:3000/api
+
+
+### 1. INICIAR SESIÓN (Obtener Access Token de Paciente)
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "correo_institucional": "paciente.peso@decokasas.com",
+  "contrasena": "PesoClave123!"
+}
+
+
+### Guardamos el access_token obtenido del login
+@accessToken = {{login.response.body.data.access_token}}
+
+
+### 2. OBTENER ESTRUCTURA DEL PLAN (Mi Plan: semanas -> dias -> menus)
+### Este endpoint devuelve la lista de semanas. Cada semana tiene dias, y cada dia sus menus de 5 tiempos.
+### Además, incluye el estado ('pendiente', 'realizado', 'no_realizado') de cada comida.
+GET {{baseUrl}}/meal-tracking/today
+Authorization: Bearer {{accessToken}}
+
+
+### 3. MARCAR COMIDA COMO CUMPLIDA (✔️) O SALTADA (❌)
+### Cambia "realizado" a true (✔️) o false (❌)
+### IMPORTANTE: Debes reemplazar el `id_menu_diario` con un ID real devuelto por el endpoint anterior.
+POST {{baseUrl}}/meal-tracking
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "id_menu_diario": 21,
+  "realizado": true,
+  "hora_registro": "08:15"
+}
+
+
+### 4. DETALLE DE UN PLATO (Ver ingredientes y preparación)
+### Devuelve el plato con ingredientes y preparación detallada para la vista expandible.
+### Incluye los alias de compatibilidad móvil: "calorias", "nombre_plato", "descripcion_plato" y "pasos_preparacion".
+### Reemplaza el ID `44` por un id_plato real.
+GET {{baseUrl}}/dishes/44
+Authorization: Bearer {{accessToken}}

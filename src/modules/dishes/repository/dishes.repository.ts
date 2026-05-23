@@ -118,7 +118,22 @@ export const dishesRepository = {
   } | null> {
 
     const platoResult = await pool.query<PlatoRow>(
-      `SELECT * FROM platos WHERE id_plato = $1`,
+      `SELECT p.*,
+              macros.proteinas_totales,
+              macros.carbohidratos_totales,
+              macros.grasas_totales
+       FROM platos p
+       LEFT JOIN LATERAL (
+         SELECT
+           COALESCE(ROUND(SUM(COALESCE(ad.proteinas, 0) * pi.cantidad_g / 100)::numeric, 2), 0)::double precision AS proteinas_totales,
+           COALESCE(ROUND(SUM(COALESCE(ad.carbohidratos, 0) * pi.cantidad_g / 100)::numeric, 2), 0)::double precision AS carbohidratos_totales,
+           COALESCE(ROUND(SUM(COALESCE(ad.grasas, 0) * pi.cantidad_g / 100)::numeric, 2), 0)::double precision AS grasas_totales
+         FROM plato_ingredientes pi
+         LEFT JOIN alimentos_detalle ad
+           ON ad.id_alimento_detalle = pi.id_alimento_detalle
+         WHERE pi.id_plato = p.id_plato
+       ) macros ON TRUE
+       WHERE p.id_plato = $1`,
       [id],
     );
 
