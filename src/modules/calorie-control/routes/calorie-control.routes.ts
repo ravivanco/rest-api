@@ -45,6 +45,13 @@ export const calorieControlRouter = Router();
  *                 ejercicios_compensatorios: null
  */
 calorieControlRouter.get(
+  '/dashboard',
+  authenticate,
+  requireRole('paciente'),
+  calorieControlController.getDashboard,
+);
+
+calorieControlRouter.get(
   '/today',
   authenticate,
   requireRole('paciente'),

@@ -78,6 +78,22 @@ export const additionalIntakeController = {
 
 
   /**
+   * DELETE /api/additional-intake/:id
+   * El paciente elimina el consumo (ya sea pendiente o confirmado) — se actualiza el balance.
+   */
+  async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const consumoId = parseInt(String(req.params.id), 10);
+      const result = await additionalIntakeService.deleteIntake(
+        consumoId,
+        req.user!.id_perfil!,
+      );
+      ok(res, result, 'Consumo adicional eliminado y balance calórico actualizado.');
+    } catch (error) { next(error); }
+  },
+
+
+  /**
    * GET /api/additional-intake/me
    * El paciente ve sus propios consumos adicionales.
    */

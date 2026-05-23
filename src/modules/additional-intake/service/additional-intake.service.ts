@@ -415,4 +415,58 @@ export const additionalIntakeService = {
     };
   },
 
+
+  /**
+   * Elimina un consumo adicional (ya sea pendiente o confirmado).
+   * Si estaba confirmado, recalculas las calorías y actualiza el control calórico.
+   */
+  async deleteIntake(consumoId: number, perfilId: number) {
+    const consumo = await additionalIntakeRepository.findById(consumoId);
+    if (!consumo) throw new NotFoundError('Consumo adicional');
+    if (consumo.id_perfil !== perfilId) throw new ForbiddenError('Este consumo no te pertenece');
+
+    // Eliminar el registro de consumos adicionales
+    await additionalIntakeRepository.delete(consumoId);
+
+    let controlActualizado = null;
+
+    // Si el consumo estaba confirmado, debemos recalcular las calorías adicionales confirmadas
+    // para ese día y actualizar la tabla control_calorico
+    if (consumo.confirmado) {
+      const totalAdicionalDia = await additionalIntakeRepository.getConfirmedCaloriesByDate(perfilId, consumo.fecha);
+
+      const controlResult = await pool.query<ControlCaloricoRow>(
+        `SELECT * FROM control_calorico WHERE id_perfil = $1 AND fecha = $2`,
+        [perfilId, consumo.fecha]
+      );
+      const controlDia = controlResult.rows[0] ?? null;
+
+      if (controlDia) {
+        const updateResult = await pool.query<ControlCaloricoRow>(
+          `UPDATE control_calorico
+           SET calorias_consumidas_adicional = $3,
+               updated_at                    = NOW()
+           WHERE id_perfil = $1 AND fecha = $2
+           RETURNING *`,
+          [perfilId, consumo.fecha, totalAdicionalDia]
+        );
+        controlActualizado = updateResult.rows[0];
+      }
+    }
+
+    return {
+      eliminado: true,
+      control_calorico: controlActualizado
+        ? {
+            calorias_objetivo:            controlActualizado.calorias_objetivo,
+            calorias_consumidas_plan:     controlActualizado.calorias_consumidas_plan,
+            calorias_consumidas_adicional: controlActualizado.calorias_consumidas_adicional,
+            calorias_totales_consumidas:  controlActualizado.calorias_totales_consumidas,
+            calorias_restantes:           controlActualizado.calorias_restantes,
+            en_exceso:                    controlActualizado.calorias_restantes < 0,
+          }
+        : null,
+    };
+  },
+
 };

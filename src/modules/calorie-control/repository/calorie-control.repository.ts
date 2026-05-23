@@ -48,6 +48,35 @@ export const calorieControlRepository = {
 
 
   /**
+   * Obtiene o crea el control calórico para una fecha específica.
+   */
+  async findOrCreateByDate(
+    perfilId:          number,
+    diaPlanId:         number,
+    caloriasObjetivo:  number,
+    fecha:             string | Date,
+  ): Promise<ControlCaloricoRow> {
+
+    const existing = await pool.query<ControlCaloricoRow>(
+      `SELECT * FROM control_calorico
+       WHERE id_perfil = $1 AND fecha = $2`,
+      [perfilId, fecha],
+    );
+
+    if (existing.rows[0]) return existing.rows[0];
+
+    const result = await pool.query<ControlCaloricoRow>(
+      `INSERT INTO control_calorico
+         (id_perfil, id_dia_plan, fecha, calorias_objetivo)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [perfilId, diaPlanId, fecha, caloriasObjetivo],
+    );
+    return result.rows[0];
+  },
+
+
+  /**
    * Actualiza las calorías consumidas del plan del día.
    * Recalcula a partir del total real (más preciso que incrementar).
    */

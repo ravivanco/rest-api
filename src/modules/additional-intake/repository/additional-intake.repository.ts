@@ -135,6 +135,17 @@ export const additionalIntakeRepository = {
 
 
   /**
+   * Elimina un consumo adicional por ID.
+   */
+  async delete(id: number): Promise<void> {
+    await pool.query(
+      `DELETE FROM consumos_adicionales WHERE id_consumo_adicional = $1`,
+      [id],
+    );
+  },
+
+
+  /**
    * Lista los consumos adicionales de un paciente con filtros.
    */
   async findByPerfil(

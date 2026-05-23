@@ -118,6 +118,43 @@ export const mealTrackingRepository = {
 
 
   /**
+   * Obtiene el seguimiento de todas las comidas para una fecha específica de un paciente.
+   */
+  async findMealsByPerfilAndDate(perfilId: number, fecha: string | Date): Promise<SeguimientoComidaRow[]> {
+    const result = await pool.query<SeguimientoComidaRow>(
+      `SELECT md.id_menu_diario,
+              md.calorias_aportadas,
+              tc.nombre      AS nombre_tiempo,
+              tc.orden,
+              tc.hora_inicio,
+              p.nombre       AS nombre_plato,
+              dp.dia_semana,
+              dp.fecha       AS fecha_menu,
+              sc.id_seguimiento_comida,
+              sc.realizado,
+              sc.hora_registro,
+              sc.fecha_registro
+       FROM   dias_plan             dp
+       JOIN   planes_semanales      ps  ON ps.id_semana       = dp.id_semana
+       JOIN   planes_nutricionales  pn  ON pn.id_plan         = ps.id_plan
+       JOIN   menus_diarios         md  ON md.id_dia_plan     = dp.id_dia_plan
+       JOIN   tiempos_comida        tc  ON tc.id_tiempo_comida = md.id_tiempo_comida
+       JOIN   platos                p   ON p.id_plato         = md.id_plato
+       LEFT JOIN seguimiento_comidas sc
+         ON sc.id_menu_diario = md.id_menu_diario
+        AND sc.id_perfil      = $1
+       WHERE  pn.id_perfil   = $1
+         AND  pn.estado       = 'activo'
+         AND  pn.modulo_habilitado = TRUE
+         AND  dp.fecha        = $2
+       ORDER BY tc.orden ASC`,
+      [perfilId, fecha],
+    );
+    return result.rows;
+  },
+
+
+  /**
    * Obtiene el historial de seguimiento de comidas de un paciente por fecha.
    * Usado por la nutricionista en la web.
    */

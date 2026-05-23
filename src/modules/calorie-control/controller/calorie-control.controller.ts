@@ -1,8 +1,21 @@
 import { Request, Response, NextFunction } from 'express';
 import { calorieControlService } from '../service/calorie-control.service';
 import { ok } from '@utils/response';
+import { DashboardQuerySchema } from '../dto/dashboard.dto';
 
 export const calorieControlController = {
+
+  async getDashboard(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const query = DashboardQuerySchema.parse(req.query);
+      // Si no viene fecha, se pasa undefined y el servicio usará la fecha actual de la BD
+      const result = await calorieControlService.getDashboardData(
+        req.user!.id_perfil!,
+        query.date || undefined
+      );
+      ok(res, result);
+    } catch (error) { next(error); }
+  },
 
   async getToday(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

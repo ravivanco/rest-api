@@ -194,6 +194,13 @@ additionalIntakeRouter.post(
   additionalIntakeController.discard,
 );
 
+additionalIntakeRouter.delete(
+  '/:id',
+  authenticate,
+  requireRole('paciente'),
+  additionalIntakeController.delete,
+);
+
 /**
  * @swagger
  * /additional-intake/me:
