@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { nutritionPlansService }           from '../service/nutrition-plans.service';
 import { ok, created }                     from '@utils/response';
+import { ForbiddenError }                  from '@errors/AppError';
 import {
   CreatePlanDto,
   ActivatePlanDto,
@@ -32,6 +33,12 @@ export const nutritionPlansController = {
   async getPatientPlans(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const perfilId = parseInt(String(req.params.perfilId), 10);
+
+      // Seguridad: Si el rol es paciente, solo puede ver su propio historial
+      if (req.user!.role === 'paciente' && req.user!.id_perfil !== perfilId) {
+        throw new ForbiddenError('No tienes permisos para ver el historial de otro paciente');
+      }
+
       const plans    = await nutritionPlansService.getPatientPlans(perfilId);
       ok(res, plans);
     } catch (error) { next(error); }

@@ -131,7 +131,7 @@ nutritionPlansRouter.post(
 nutritionPlansRouter.get(
   '/patient/:perfilId',
   authenticate,
-  requireRole('nutricionista', 'administrador'),
+  requireRole('paciente', 'nutricionista', 'administrador'),
   nutritionPlansController.getPatientPlans,
 );
 

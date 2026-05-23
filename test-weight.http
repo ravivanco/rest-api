@@ -1,0 +1,59 @@
+### ARCHIVO DE PRUEBAS PARA REGISTRO DE PESO DIARIO (WEIGHT RECORDS)
+### Puedes usar la extensión "REST Client" o "Thunder Client" en VS Code
+
+@baseUrl = http://localhost:3000/api
+
+
+### 1. REGISTRAR UN NUEVO PACIENTE DE PRUEBAS
+### (Si ya existe, puedes omitir este paso o verás un error de duplicidad)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "correo_institucional": "paciente.peso@decokasas.com",
+  "contrasena": "PesoClave123!",
+  "nombres": "Paciente",
+  "apellidos": "Diario",
+  "edad": 28,
+  "sexo": "M",
+  "fecha_nacimiento": "1998-05-15"
+}
+
+
+### 2. INICIAR SESIÓN (Obtener Access Token)
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "correo_institucional": "paciente.peso@decokasas.com",
+  "contrasena": "PesoClave123!"
+}
+
+
+### Guardamos el access_token obtenido del login
+@accessToken = {{login.response.body.data.access_token}}
+
+
+### 3. REGISTRAR EL PESO DIARIO
+### Registra el peso en kg (Rango permitido: 20 a 499)
+### IMPORTANTE: Si ejecutas esto más de una vez en el mismo día, te retornará 409 Conflict.
+POST {{baseUrl}}/weight-records
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "peso_kg": 75.5
+}
+
+
+### 4. OBTENER MI HISTORIAL DE PESO
+### Retorna el historial de pesos paginado y calcula la diferencia entre registros consecutivos.
+GET {{baseUrl}}/weight-records/me?page=1&limit=30
+Authorization: Bearer {{accessToken}}
+
+
+### 5. OBTENER DATOS PARA GRÁFICO (Evolución)
+### Parámetros opcionales: period = 7d, 30d (default), 90d
+GET {{baseUrl}}/weight-records/me/chart?period=30d
+Authorization: Bearer {{accessToken}}
