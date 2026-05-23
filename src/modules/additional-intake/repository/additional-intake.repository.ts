@@ -11,6 +11,14 @@ export interface ConsumoAdicionalRow {
   calorias_estimadas:   number | null;
   confirmado:           boolean;
   calorias_sumadas:     boolean;
+  porcion_g:            number | null;
+  proteinas_g:          number | null;
+  carbohidratos_g:      number | null;
+  grasas_g:             number | null;
+  confianza_pct:        number | null;
+  fuente_estimacion:    string | null;
+  mensaje:              string | null;
+  alimentos_detectados: any;
   created_at:           string;
   updated_at:           string;
 }
@@ -22,18 +30,28 @@ export const additionalIntakeRepository = {
    * Las calorías NO se suman al balance hasta que confirme.
    */
   async create(data: {
-    id_perfil:            number;
-    descripcion_alimento: string;
-    imagen_url?:          string | null;
-    calorias_estimadas?:  number | null;
-    hora?:                string | null;
+    id_perfil:             number;
+    descripcion_alimento:  string;
+    imagen_url?:           string | null;
+    calorias_estimadas?:   number | null;
+    hora?:                 string | null;
+    porcion_g?:            number | null;
+    proteinas_g?:          number | null;
+    carbohidratos_g?:      number | null;
+    grasas_g?:             number | null;
+    confianza_pct?:        number | null;
+    fuente_estimacion?:    string | null;
+    mensaje?:              string | null;
+    alimentos_detectados?: any;
   }): Promise<ConsumoAdicionalRow> {
 
     const result = await pool.query<ConsumoAdicionalRow>(
       `INSERT INTO consumos_adicionales
          (id_perfil, fecha, hora, descripcion_alimento,
-          imagen_url, calorias_estimadas, confirmado, calorias_sumadas)
-       VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, FALSE, FALSE)
+          imagen_url, calorias_estimadas, confirmado, calorias_sumadas,
+          porcion_g, proteinas_g, carbohidratos_g, grasas_g,
+          confianza_pct, fuente_estimacion, mensaje, alimentos_detectados)
+       VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, FALSE, FALSE, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         data.id_perfil,
@@ -41,6 +59,14 @@ export const additionalIntakeRepository = {
         data.descripcion_alimento,
         data.imagen_url ?? null,
         data.calorias_estimadas ?? null,
+        data.porcion_g ?? null,
+        data.proteinas_g ?? null,
+        data.carbohidratos_g ?? null,
+        data.grasas_g ?? null,
+        data.confianza_pct ?? null,
+        data.fuente_estimacion ?? null,
+        data.mensaje ?? null,
+        data.alimentos_detectados ? (typeof data.alimentos_detectados === 'string' ? data.alimentos_detectados : JSON.stringify(data.alimentos_detectados)) : null,
       ],
     );
     return result.rows[0];

@@ -27,11 +27,19 @@ export const additionalIntakeService = {
 
     // 1. Crear el registro (sin confirmar)
     const consumo = await additionalIntakeRepository.create({
-      id_perfil:            perfilId,
-      descripcion_alimento: data.descripcion_alimento,
-      imagen_url:           data.imagen_url,
-      calorias_estimadas:   data.calorias_estimadas,
-      hora:                 data.hora,
+      id_perfil:             perfilId,
+      descripcion_alimento:  data.descripcion_alimento,
+      imagen_url:            data.imagen_url,
+      calorias_estimadas:    data.calorias_estimadas,
+      hora:                  data.hora,
+      porcion_g:             data.porcion_g,
+      proteinas_g:           data.proteinas_g,
+      carbohidratos_g:       data.carbohidratos_g,
+      grasas_g:              data.grasas_g,
+      confianza_pct:         data.confianza_pct,
+      fuente_estimacion:     data.fuente_estimacion,
+      mensaje:               data.mensaje,
+      alimentos_detectados:  data.alimentos_detectados,
     });
 
     // 2. Si no tiene calorías manuales, intentar estimación automática
@@ -47,15 +55,43 @@ export const additionalIntakeService = {
         estimacion = await estimateFromDescription(data.descripcion_alimento);
       }
 
-      // Si la estimación encontró calorías, actualizar el registro
+      // Si la estimación encontró calorías, actualizar el registro con todos los detalles
       if (estimacion && estimacion.calorias_estimadas) {
         await pool.query(
           `UPDATE consumos_adicionales
-           SET calorias_estimadas = $1, updated_at = NOW()
-           WHERE id_consumo_adicional = $2`,
-          [estimacion.calorias_estimadas, consumo.id_consumo_adicional],
+           SET calorias_estimadas   = $1,
+               porcion_g            = $2,
+               proteinas_g          = $3,
+               carbohidratos_g      = $4,
+               grasas_g             = $5,
+               confianza_pct        = $6,
+               fuente_estimacion    = $7,
+               mensaje              = $8,
+               alimentos_detectados = $9,
+               updated_at           = NOW()
+           WHERE id_consumo_adicional = $10`,
+          [
+            estimacion.calorias_estimadas,
+            estimacion.porcion_estimada_g ?? null,
+            estimacion.macros?.proteinas_g ?? null,
+            estimacion.macros?.carbohidratos_g ?? null,
+            estimacion.macros?.grasas_g ?? null,
+            estimacion.confianza_pct ?? null,
+            estimacion.fuente_estimacion ?? 'ia_vision',
+            estimacion.mensaje ?? null,
+            estimacion.alimentos_detectados ? (typeof estimacion.alimentos_detectados === 'string' ? estimacion.alimentos_detectados : JSON.stringify(estimacion.alimentos_detectados)) : null,
+            consumo.id_consumo_adicional,
+          ],
         );
-        consumo.calorias_estimadas = estimacion.calorias_estimadas;
+        consumo.calorias_estimadas   = estimacion.calorias_estimadas;
+        consumo.porcion_g            = estimacion.porcion_estimada_g ?? null;
+        consumo.proteinas_g          = estimacion.macros?.proteinas_g ?? null;
+        consumo.carbohidratos_g      = estimacion.macros?.carbohidratos_g ?? null;
+        consumo.grasas_g             = estimacion.macros?.grasas_g ?? null;
+        consumo.confianza_pct        = estimacion.confianza_pct ?? null;
+        consumo.fuente_estimacion    = estimacion.fuente_estimacion ?? 'ia_vision';
+        consumo.mensaje              = estimacion.mensaje ?? null;
+        consumo.alimentos_detectados = estimacion.alimentos_detectados ?? [];
       }
     }
 
@@ -164,7 +200,9 @@ export const additionalIntakeService = {
     }
 
     // Verificar que sea del día actual (no se puede confirmar consumos de días pasados)
-    const hoy = new Date().toISOString().split('T')[0];
+    // Usamos la fecha de la base de datos para evitar desajustes de zona horaria (UTC vs Local)
+    const dbDateResult = await pool.query<{ hoy: string }>('SELECT CURRENT_DATE::text as hoy');
+    const hoy = dbDateResult.rows[0].hoy;
     if (consumo.fecha !== hoy) {
       throw new BusinessRuleError(
         `No puedes confirmar consumos de días anteriores. Este consumo es del ${consumo.fecha}.`

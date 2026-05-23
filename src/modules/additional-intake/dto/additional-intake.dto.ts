@@ -34,6 +34,58 @@ export const CreateAdditionalIntakeDto = z.object({
     .regex(/^\d{2}:\d{2}$/, 'Formato de hora inválido. Usa HH:MM')
     .optional()
     .nullable(),
+
+  porcion_g: z
+    .number()
+    .int()
+    .min(1, 'La porción mínima es 1 g')
+    .optional()
+    .nullable(),
+
+  proteinas_g: z
+    .number()
+    .int()
+    .min(0, 'Las proteínas no pueden ser negativas')
+    .optional()
+    .nullable(),
+
+  carbohidratos_g: z
+    .number()
+    .int()
+    .min(0, 'Los carbohidratos no pueden ser negativos')
+    .optional()
+    .nullable(),
+
+  grasas_g: z
+    .number()
+    .int()
+    .min(0, 'Las grasas no pueden ser negativas')
+    .optional()
+    .nullable(),
+
+  confianza_pct: z
+    .number()
+    .int()
+    .min(0)
+    .max(100)
+    .optional()
+    .nullable(),
+
+  fuente_estimacion: z
+    .string()
+    .max(50)
+    .optional()
+    .nullable(),
+
+  mensaje: z
+    .string()
+    .optional()
+    .nullable(),
+
+  alimentos_detectados: z
+    .any()
+    .optional()
+    .nullable(),
 });
 export type CreateAdditionalIntakeDto = z.infer<typeof CreateAdditionalIntakeDto>;
 
