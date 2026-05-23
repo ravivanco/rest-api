@@ -63,7 +63,34 @@ export const mealTrackingService = {
       // Recalcular desde cero: suma todas las comidas realizadas hoy
       const totalCaloriasPlan = await mealTrackingRepository.getTodayCaloriesFromPlan(perfilId);
 
-      const controlHoy = await calorieControlRepository.findToday(perfilId);
+      let controlHoy = await calorieControlRepository.findToday(perfilId);
+      if (!controlHoy) {
+        // Buscar el id_dia_plan de hoy y calorías objetivo para inicializar el registro
+        const planData = await pool.query<{
+          id_dia_plan:                 number;
+          calorias_diarias_calculadas: number;
+        }>(
+          `SELECT dp.id_dia_plan,
+                  ec.calorias_diarias_calculadas
+           FROM   planes_nutricionales  pn
+           JOIN   planes_semanales      ps ON ps.id_plan     = pn.id_plan
+           JOIN   dias_plan             dp ON dp.id_semana   = ps.id_semana
+           JOIN   evaluaciones_clinicas ec ON ec.id_evaluacion = pn.id_evaluacion
+           WHERE  pn.id_perfil        = $1
+             AND  pn.estado           = 'activo'
+             AND  pn.modulo_habilitado = TRUE
+             AND  dp.fecha            = CURRENT_DATE`,
+          [perfilId],
+        );
+        if (planData.rows[0]) {
+          controlHoy = await calorieControlRepository.findOrCreateToday(
+            perfilId,
+            planData.rows[0].id_dia_plan,
+            planData.rows[0].calorias_diarias_calculadas ?? 2000,
+          );
+        }
+      }
+
       if (controlHoy) {
         await calorieControlRepository.updatePlanCalories(perfilId, totalCaloriasPlan);
       }

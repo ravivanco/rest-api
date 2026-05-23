@@ -243,7 +243,35 @@ export const additionalIntakeService = {
       `SELECT * FROM control_calorico WHERE id_perfil = $1 AND fecha = $2`,
       [perfilId, consumo.fecha]
     );
-    const controlDia = controlResult.rows[0] ?? null;
+    let controlDia = controlResult.rows[0] ?? null;
+
+    if (!controlDia) {
+      // Buscar el plan para la fecha del consumo
+      const planData = await pool.query<{
+        id_dia_plan:              number;
+        calorias_diarias_calculadas: number;
+      }>(
+        `SELECT dp.id_dia_plan,
+                ec.calorias_diarias_calculadas
+         FROM   planes_nutricionales  pn
+         JOIN   planes_semanales      ps ON ps.id_plan     = pn.id_plan
+         JOIN   dias_plan             dp ON dp.id_semana   = ps.id_semana
+         JOIN   evaluaciones_clinicas ec ON ec.id_evaluacion = pn.id_evaluacion
+         WHERE  pn.id_perfil        = $1
+           AND  pn.estado           = 'activo'
+           AND  pn.modulo_habilitado = TRUE
+           AND  dp.fecha            = $2`,
+        [perfilId, consumo.fecha],
+      );
+      if (planData.rows[0]) {
+        controlDia = await calorieControlRepository.findOrCreateByDate(
+          perfilId,
+          planData.rows[0].id_dia_plan,
+          planData.rows[0].calorias_diarias_calculadas ?? 2000,
+          consumo.fecha
+        );
+      }
+    }
 
     if (controlDia) {
       const updateResult = await pool.query<ControlCaloricoRow>(

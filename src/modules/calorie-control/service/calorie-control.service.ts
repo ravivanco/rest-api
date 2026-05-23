@@ -65,34 +65,78 @@ export const calorieControlService = {
     const additionalIntakes = additionalIntakesResult.rows;
 
     // 6. Generar balances y estados
-    const progresoPct = control
-      ? Math.round((control.calorias_totales_consumidas / control.calorias_objetivo) * 100)
-      : 0;
-
-    const estado = control
-      ? (control.calorias_restantes > 0 ? 'deficit' : control.calorias_restantes === 0 ? 'exacto' : 'exceso')
-      : 'deficit';
-
+    let balanceObj = null;
     let ejerciciosCompensatorios = null;
-    if (control && control.calorias_restantes < 0) {
-      const caloriasExceso = Math.abs(control.calorias_restantes);
-      ejerciciosCompensatorios = await this.getSuggestedExercises(caloriasExceso);
+
+    if (control) {
+      const progresoPct = Math.round((control.calorias_totales_consumidas / control.calorias_objetivo) * 100);
+      const estado = control.calorias_restantes > 0 ? 'deficit' : control.calorias_restantes === 0 ? 'exacto' : 'exceso';
+      if (control.calorias_restantes < 0) {
+        const caloriasExceso = Math.abs(control.calorias_restantes);
+        ejerciciosCompensatorios = await this.getSuggestedExercises(caloriasExceso);
+      }
+      const macrosInfo = await this.getConsumedMacros(perfilId, fecha);
+
+      balanceObj = {
+        calorias_objetivo:            control.calorias_objetivo,
+        calorias_consumidas_plan:     control.calorias_consumidas_plan,
+        calorias_consumidas_adicional: control.calorias_consumidas_adicional,
+        calorias_totales_consumidas:  control.calorias_totales_consumidas,
+        calorias_restantes:           control.calorias_restantes,
+        progreso_pct:                 Math.min(progresoPct, 100),
+        estado,
+        meta_calorica:                 control.calorias_objetivo,
+        calorias_plan_consumidas:      control.calorias_consumidas_plan,
+        calorias_adicionales:          control.calorias_consumidas_adicional,
+        porcentaje_macros:             macrosInfo ? macrosInfo.porcentaje : null,
+        gramos_macros:                 macrosInfo ? macrosInfo.gramos : null,
+      };
+    } else {
+      // Buscar última evaluación clínica
+      const evalResult = await pool.query<{ calorias_diarias_calculadas: number }>(
+        `SELECT calorias_diarias_calculadas
+         FROM   evaluaciones_clinicas
+         WHERE  id_perfil = $1
+         ORDER BY fecha_evaluacion DESC, id_evaluacion DESC
+         LIMIT 1`,
+        [perfilId]
+      );
+
+      if (evalResult.rows[0]) {
+        const caloriasObjetivo = evalResult.rows[0].calorias_diarias_calculadas ?? 2000;
+        const totalAdicionalDia = await additionalIntakeRepository.getConfirmedCaloriesByDate(perfilId, fecha);
+        const caloriasPlan = 0; // Sin plan activo
+        const caloriasTotales = caloriasPlan + totalAdicionalDia;
+        const caloriasRestantes = caloriasObjetivo - caloriasTotales;
+        const progresoPct = Math.round((caloriasTotales / caloriasObjetivo) * 100);
+        const estado = caloriasRestantes > 0 ? 'deficit' : caloriasRestantes === 0 ? 'exacto' : 'exceso';
+
+        if (caloriasRestantes < 0) {
+          ejerciciosCompensatorios = await this.getSuggestedExercises(Math.abs(caloriasRestantes));
+        }
+        const macrosInfo = await this.getConsumedMacros(perfilId, fecha);
+
+        balanceObj = {
+          calorias_objetivo:            caloriasObjetivo,
+          calorias_consumidas_plan:     caloriasPlan,
+          calorias_consumidas_adicional: totalAdicionalDia,
+          calorias_totales_consumidas:  caloriasTotales,
+          calorias_restantes:           caloriasRestantes,
+          progreso_pct:                 Math.min(progresoPct, 100),
+          estado,
+          meta_calorica:                 caloriasObjetivo,
+          calorias_plan_consumidas:      caloriasPlan,
+          calorias_adicionales:          totalAdicionalDia,
+          porcentaje_macros:             macrosInfo ? macrosInfo.porcentaje : null,
+          gramos_macros:                 macrosInfo ? macrosInfo.gramos : null,
+        };
+      }
     }
 
     return {
       tiene_plan_activo: control !== null,
       fecha,
-      balance: control
-        ? {
-            calorias_objetivo:            control.calorias_objetivo,
-            calorias_consumidas_plan:     control.calorias_consumidas_plan,
-            calorias_consumidas_adicional: control.calorias_consumidas_adicional,
-            calorias_totales_consumidas:  control.calorias_totales_consumidas,
-            calorias_restantes:           control.calorias_restantes,
-            progreso_pct:                 Math.min(progresoPct, 100),
-            estado,
-          }
-        : null,
+      balance: balanceObj,
       ejercicios_compensatorios: ejerciciosCompensatorios,
       meals: meals.map(m => ({
         id_menu_diario: m.id_menu_diario,
@@ -148,9 +192,59 @@ export const calorieControlService = {
       );
 
       if (!planData.rows[0]) {
+        // Intentar calcular balance virtual desde evaluación clínica
+        const evalResult = await pool.query<{ calorias_diarias_calculadas: number }>(
+          `SELECT calorias_diarias_calculadas
+           FROM   evaluaciones_clinicas
+           WHERE  id_perfil = $1
+           ORDER BY fecha_evaluacion DESC, id_evaluacion DESC
+           LIMIT 1`,
+          [perfilId]
+        );
+
+        if (evalResult.rows[0]) {
+          const caloriasObjetivo = evalResult.rows[0].calorias_diarias_calculadas ?? 2000;
+          const dbDateResult = await pool.query<{ hoy: string }>('SELECT CURRENT_DATE::text as hoy');
+          const hoy = dbDateResult.rows[0].hoy;
+
+          const totalAdicionalDia = await additionalIntakeRepository.getConfirmedCaloriesByDate(perfilId, hoy);
+          const caloriasPlan = 0;
+          const caloriasTotales = caloriasPlan + totalAdicionalDia;
+          const caloriasRestantes = caloriasObjetivo - caloriasTotales;
+          const progresoPct = Math.round((caloriasTotales / caloriasObjetivo) * 100);
+          const estado = caloriasRestantes > 0 ? 'deficit' : caloriasRestantes === 0 ? 'exacto' : 'exceso';
+
+          const macrosInfo = await this.getConsumedMacros(perfilId, hoy);
+
+          let sugerenciaEjercicios = null;
+          if (caloriasRestantes < 0) {
+            sugerenciaEjercicios = await this.getSuggestedExercises(Math.abs(caloriasRestantes));
+          }
+
+          return {
+            tiene_plan_activo: false,
+            fecha: hoy,
+            balance: {
+              calorias_objetivo:            caloriasObjetivo,
+              calorias_consumidas_plan:     caloriasPlan,
+              calorias_consumidas_adicional: totalAdicionalDia,
+              calorias_totales_consumidas:  caloriasTotales,
+              calorias_restantes:           caloriasRestantes,
+              progreso_pct:                 Math.min(progresoPct, 100),
+              estado,
+              meta_calorica:                 caloriasObjetivo,
+              calorias_plan_consumidas:      caloriasPlan,
+              calorias_adicionales:          totalAdicionalDia,
+              porcentaje_macros:             macrosInfo.porcentaje,
+              gramos_macros:                 macrosInfo.gramos,
+            },
+            ejercicios_compensatorios: sugerenciaEjercicios,
+          };
+        }
+
         return {
           tiene_plan_activo: false,
-          mensaje: 'No tienes un plan activo con menús para hoy.',
+          mensaje: 'No tienes un plan activo con menús para hoy ni evaluaciones registradas.',
           balance: null,
         };
       }
@@ -179,6 +273,8 @@ export const calorieControlService = {
       ejerciciosCompensatorios = await this.getSuggestedExercises(caloriasExceso);
     }
 
+    const macrosInfo = await this.getConsumedMacros(perfilId, control.fecha);
+
     return {
       tiene_plan_activo: true,
       fecha:             control.fecha,
@@ -190,6 +286,11 @@ export const calorieControlService = {
         calorias_restantes:           control.calorias_restantes,
         progreso_pct:                 Math.min(progresoPct, 100),
         estado,
+        meta_calorica:                 control.calorias_objetivo,
+        calorias_plan_consumidas:      control.calorias_consumidas_plan,
+        calorias_adicionales:          control.calorias_consumidas_adicional,
+        porcentaje_macros:             macrosInfo.porcentaje,
+        gramos_macros:                 macrosInfo.gramos,
       },
       ejercicios_compensatorios: ejerciciosCompensatorios,
     };
@@ -288,6 +389,78 @@ export const calorieControlService = {
         restantes:            r.calorias_restantes,
         estado:               r.calorias_restantes >= 0 ? 'deficit' : 'exceso',
       })),
+    };
+  },
+
+  async getConsumedMacros(perfilId: number, fecha: string | Date) {
+    // 1. Macros del plan consumidos
+    const planMacrosResult = await pool.query<{
+      proteinas: string;
+      carbohidratos: string;
+      grasas: string;
+    }>(
+      `SELECT
+         COALESCE(SUM(macros.proteinas_totales), 0) AS proteinas,
+         COALESCE(SUM(macros.carbohidratos_totales), 0) AS carbohidratos,
+         COALESCE(SUM(macros.grasas_totales), 0) AS grasas
+       FROM seguimiento_comidas sc
+       JOIN menus_diarios md ON md.id_menu_diario = sc.id_menu_diario
+       LEFT JOIN LATERAL (
+         SELECT
+           SUM(COALESCE(ad.proteinas, 0) * pi.cantidad_g / 100) AS proteinas_totales,
+           SUM(COALESCE(ad.carbohidratos, 0) * pi.cantidad_g / 100) AS carbohidratos_totales,
+           SUM(COALESCE(ad.grasas, 0) * pi.cantidad_g / 100) AS grasas_totales
+         FROM plato_ingredientes pi
+         LEFT JOIN alimentos_detalle ad ON ad.id_alimento_detalle = pi.id_alimento_detalle
+         WHERE pi.id_plato = md.id_plato
+       ) macros ON TRUE
+       WHERE sc.id_perfil = $1
+         AND sc.realizado = TRUE
+         AND sc.fecha_registro = $2`,
+      [perfilId, fecha]
+    );
+
+    // 2. Macros adicionales confirmados
+    const adicionalMacrosResult = await pool.query<{
+      proteinas: string;
+      carbohidratos: string;
+      grasas: string;
+    }>(
+      `SELECT
+         COALESCE(SUM(proteinas_g), 0) AS proteinas,
+         COALESCE(SUM(carbohidratos_g), 0) AS carbohidratos,
+         COALESCE(SUM(grasas_g), 0) AS grasas
+       FROM consumos_adicionales
+       WHERE id_perfil = $1
+         AND confirmado = TRUE
+         AND fecha = $2`,
+      [perfilId, fecha]
+    );
+
+    const protG = parseFloat(planMacrosResult.rows[0].proteinas || '0') + parseFloat(adicionalMacrosResult.rows[0].proteinas || '0');
+    const carbG = parseFloat(planMacrosResult.rows[0].carbohidratos || '0') + parseFloat(adicionalMacrosResult.rows[0].carbohidratos || '0');
+    const grasG = parseFloat(planMacrosResult.rows[0].grasas || '0') + parseFloat(adicionalMacrosResult.rows[0].grasas || '0');
+
+    const protCal = protG * 4;
+    const carbCal = carbG * 4;
+    const grasCal = grasG * 9;
+    const totalCal = protCal + carbCal + grasCal;
+
+    return {
+      gramos: {
+        proteinas: Math.round(protG * 10) / 10,
+        carbohidratos: Math.round(carbG * 10) / 10,
+        grasas: Math.round(grasG * 10) / 10,
+      },
+      porcentaje: totalCal > 0 ? {
+        proteinas: Math.round((protCal / totalCal) * 100),
+        carbohidratos: Math.round((carbCal / totalCal) * 100),
+        grasas: Math.round((grasCal / totalCal) * 100),
+      } : {
+        proteinas: 0,
+        carbohidratos: 0,
+        grasas: 0,
+      }
     };
   },
 
