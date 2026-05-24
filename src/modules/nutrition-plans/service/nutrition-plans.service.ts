@@ -213,15 +213,27 @@ export const nutritionPlansService = {
     const semanasConHoy = resultado.semanas.map(s => ({
       ...s,
       es_semana_actual: s.semana.id_semana === semanaActual?.semana.id_semana,
-      dias: s.dias.map(d => ({
-        ...d,
-        dia: {
+      dias: s.dias.map(d => {
+        const diaConHoy = {
           ...d.dia,
           es_hoy:           d.dia.fecha === hoy,
-          // RN-03: solo puede registrar cumplimiento en el día correspondiente
           puede_registrar:  d.dia.fecha === hoy,
-        },
-      })),
+        };
+        return {
+          ...d,
+          // Formato anidado para compatibilidad
+          dia: diaConHoy,
+          // Formato plano esparcido para compatibilidad
+          ...diaConHoy,
+          menus: d.menus.map(m => ({
+            ...m,
+            idPlato:            m.id_plato,
+            dishId:             m.id_plato,
+            dish_id:            m.id_plato,
+            menuTrackingId:     m.id_menu_diario,
+          })),
+        };
+      }),
     }));
 
     return {
@@ -320,9 +332,13 @@ export const nutritionPlansService = {
         if (dia) {
           dia.menus.push({
             id_menu_diario: row.id_menu_diario,
+            menuTrackingId: row.id_menu_diario,
             id_tiempo_comida: row.id_tiempo_comida ?? 0,
             tiempo_comida: row.tiempo_comida ?? '',
             id_plato: row.id_plato ?? 0,
+            idPlato: row.id_plato ?? 0,
+            dishId: row.id_plato ?? 0,
+            dish_id: row.id_plato ?? 0,
             nombre_plato: row.nombre_plato ?? '',
             calorias_aportadas: row.calorias_aportadas ?? 0,
           });

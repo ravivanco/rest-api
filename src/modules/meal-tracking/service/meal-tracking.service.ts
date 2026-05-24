@@ -174,10 +174,14 @@ export const mealTrackingService = {
             const track = trackingMap.get(m.id_menu_diario);
             return {
               id_menu_diario:     m.id_menu_diario,
+              menuTrackingId:     m.id_menu_diario,
               id_tiempo_comida:   m.id_tiempo_comida,
               tiempo_comida:      m.nombre_tiempo ?? '',
               nombre_tiempo:      m.nombre_tiempo ?? '',
               id_plato:           m.id_plato,
+              idPlato:            m.id_plato,
+              dishId:             m.id_plato,
+              dish_id:            m.id_plato,
               nombre_plato:       m.nombre_plato ?? '',
               calorias_aportadas: m.calorias_aportadas,
               estado:
