@@ -13,6 +13,7 @@ import {
   BusinessRuleError,
   ForbiddenError,
 } from '@errors/AppError';
+import { ensureDailyExercisesExist, limitExercisesTo60Minutes } from '@utils/exercise-limiter';
 
 /** 
  * Días válidos para los planes nutricionales.
@@ -209,32 +210,65 @@ export const nutritionPlansService = {
       s.semana.fecha_inicio_semana <= hoy && s.semana.fecha_fin_semana >= hoy
     );
 
-    // Agregar campo 'es_hoy' a cada día para la app móvil
-    const semanasConHoy = resultado.semanas.map(s => ({
-      ...s,
-      es_semana_actual: s.semana.id_semana === semanaActual?.semana.id_semana,
-      dias: s.dias.map(d => {
-        const diaConHoy = {
-          ...d.dia,
-          es_hoy:           d.dia.fecha === hoy,
-          puede_registrar:  d.dia.fecha === hoy,
-        };
+    // Agregar campo 'es_hoy' a cada día y auto-poblar/limitar ejercicios para la app móvil
+    const semanasConHoy = await Promise.all(
+      resultado.semanas.map(async s => {
+        const diasMapped = await Promise.all(
+          s.dias.map(async d => {
+            const diaConHoy = {
+              ...d.dia,
+              es_hoy:           d.dia.fecha === hoy,
+              puede_registrar:  d.dia.fecha === hoy,
+            };
+
+            // Asegurar que existan ejercicios programados de forma variada y guardados
+            const rawExercises = await ensureDailyExercisesExist(perfilId, d.dia.id_dia_plan);
+
+            // Limitar a 60 minutos (por si acaso y para calcular totalDuration)
+            const { limited: limitedExercises, totalDuration } = limitExercisesTo60Minutes(rawExercises);
+
+            const mappedExercises = limitedExercises.map(e => ({
+              id_ejercicio:         e.id_ejercicio,
+              id_ejercicio_diario:  e.id_ejercicio_diario,
+              nombre:               e.nombre_ejercicio,
+              nombre_ejercicio:     e.nombre_ejercicio,
+              descripcion:          e.descripcion_ejercicio || '',
+              duracion_min:         e.duracion_min,
+              series:               '',
+              bloques:              '',
+              distancia:            '',
+              repeticiones:         '',
+              intensidad:           e.intensidad,
+              puede_registrar:      true,
+            }));
+
+            return {
+              ...d,
+              ejercicios:         mappedExercises,
+              exercises:          mappedExercises,
+              total_duration_min: totalDuration,
+              // Formato anidado para compatibilidad
+              dia: diaConHoy,
+              // Formato plano esparcido para compatibilidad
+              ...diaConHoy,
+              menus: d.menus.map(m => ({
+                ...m,
+                idPlato:            m.id_plato,
+                dishId:             m.id_plato,
+                dish_id:            m.id_plato,
+                menuTrackingId:     m.id_menu_diario,
+              })),
+            };
+          })
+        );
+
         return {
-          ...d,
-          // Formato anidado para compatibilidad
-          dia: diaConHoy,
-          // Formato plano esparcido para compatibilidad
-          ...diaConHoy,
-          menus: d.menus.map(m => ({
-            ...m,
-            idPlato:            m.id_plato,
-            dishId:             m.id_plato,
-            dish_id:            m.id_plato,
-            menuTrackingId:     m.id_menu_diario,
-          })),
+          ...s,
+          es_semana_actual: s.semana.id_semana === semanaActual?.semana.id_semana,
+          dias: diasMapped,
         };
-      }),
-    }));
+      })
+    );
 
     return {
       tiene_plan_activo:  true,

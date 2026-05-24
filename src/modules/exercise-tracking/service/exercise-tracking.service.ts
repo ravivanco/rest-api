@@ -3,6 +3,7 @@ import { TrackExerciseDto }           from '../dto/exercise-tracking.dto';
 import { assertIsToday }              from '@utils/date-validator';
 import { NotFoundError, ForbiddenError } from '@errors/AppError';
 import { pool } from '@database/pool';
+import { ensureDailyExercisesExist, limitExercisesTo60Minutes } from '@utils/exercise-limiter';
 
 export const exerciseTrackingService = {
 
@@ -87,10 +88,32 @@ export const exerciseTrackingService = {
    * Obtiene los ejercicios de un día específico con su estado.
    */
   async getTodayExercises(perfilId: number, fecha?: string) {
-    const ejercicios = await exerciseTrackingRepository.findTodayByPerfil(perfilId, fecha);
     const targetDate = fecha || new Date().toISOString().split('T')[0];
 
-    const mappedExercises = ejercicios.map(e => ({
+    // 1. Obtener el id_dia_plan para esta fecha y paciente
+    const diaPlanQuery = await pool.query<{ id_dia_plan: number }>(
+      `SELECT dp.id_dia_plan
+       FROM   dias_plan             dp
+       JOIN   planes_semanales      ps  ON ps.id_semana   = dp.id_semana
+       JOIN   planes_nutricionales  pn  ON pn.id_plan     = ps.id_plan
+       WHERE  pn.id_perfil        = $1
+         AND  pn.estado           = 'activo'
+         AND  pn.modulo_habilitado = TRUE
+         AND  dp.fecha            = $2`,
+      [perfilId, targetDate]
+    );
+
+    if (diaPlanQuery.rows[0]) {
+      // Auto-generar e insertar si no existen ejercicios programados para este día
+      await ensureDailyExercisesExist(perfilId, diaPlanQuery.rows[0].id_dia_plan);
+    }
+
+    const ejercicios = await exerciseTrackingRepository.findTodayByPerfil(perfilId, targetDate);
+
+    // 2. Limitar y calcular duración total
+    const { limited: limitedEjercicios, totalDuration } = limitExercisesTo60Minutes(ejercicios);
+
+    const mappedExercises = limitedEjercicios.map(e => ({
       id_ejercicio:         e.id_ejercicio,
       id_ejercicio_diario:  e.id_ejercicio_diario,
       nombre:               e.nombre_ejercicio,
@@ -112,29 +135,31 @@ export const exerciseTrackingService = {
       puede_registrar:      true,
     }));
 
-    if (ejercicios.length === 0) {
+    if (limitedEjercicios.length === 0) {
       return {
         tiene_ejercicios_hoy: false,
         mensaje: 'No tienes ejercicios programados para este día.',
         ejercicios: [],
         exercises: [],
         resumen: null,
+        total_duration_min: 0,
       };
     }
 
-    const completados  = ejercicios.filter(e => e.completado === true).length;
-    const pendientes   = ejercicios.filter(e => !e.id_seguimiento_ejercicio).length;
+    const completados  = limitedEjercicios.filter(e => e.completado === true).length;
+    const pendientes   = limitedEjercicios.filter(e => !e.id_seguimiento_ejercicio).length;
 
     return {
       tiene_ejercicios_hoy: true,
       fecha:                targetDate,
       ejercicios:           mappedExercises,
       exercises:            mappedExercises,
+      total_duration_min:   totalDuration,
       resumen: {
-        total:        ejercicios.length,
+        total:        limitedEjercicios.length,
         completados,
         pendientes,
-        pct_cumplimiento: Math.round((completados / ejercicios.length) * 100),
+        pct_cumplimiento: Math.round((completados / limitedEjercicios.length) * 100),
       },
     };
   },
