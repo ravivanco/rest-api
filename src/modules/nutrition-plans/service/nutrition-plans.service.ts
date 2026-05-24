@@ -296,9 +296,13 @@ export const nutritionPlansService = {
         fecha: string;
         menus: Array<{
           id_menu_diario: number;
+          menuTrackingId?: number;
           id_tiempo_comida: number;
           tiempo_comida: string;
           id_plato: number;
+          idPlato?: number;
+          dishId?: number;
+          dish_id?: number;
           nombre_plato: string;
           calorias_aportadas: number;
         }>;
