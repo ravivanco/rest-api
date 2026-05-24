@@ -43,7 +43,8 @@ export interface GeneratedRecipeResult {
   calorias_totales: number;
   tiempo_preparacion_min: number | null;
   ingredientes: Array<{
-    id_alimento_detalle: number;
+    id_alimento_detalle?: number | null;
+    id_alimento?: number | null;
     nombre: string;
     cantidad_g: number;
     calorias_aportadas: number;

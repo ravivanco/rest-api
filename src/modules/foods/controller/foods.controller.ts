@@ -1,17 +1,24 @@
 import { Request, Response, NextFunction } from 'express';
 import { foodsService }    from '../service/foods.service';
 import { ok, created }     from '@utils/response';
-import { CreateFoodDto, UpdateFoodDto } from '../dto/foods.dto';
+import { CreateFoodDto, UpdateFoodDto, CreateCustomFoodDto } from '../dto/foods.dto';
 
 export const foodsController = {
 
   async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const q      = req.query;
+      
+      let idPerfilVal = q.id_perfil ? parseInt(String(q.id_perfil), 10) : undefined;
+      if (!idPerfilVal && req.user && req.user.id_perfil) {
+        idPerfilVal = req.user.id_perfil;
+      }
+
       const result = await foodsService.list({
         search:    q.search    as string | undefined,
         categoria: q.categoria as string | undefined,
         activo:    q.activo    as string | undefined,
+        id_perfil: idPerfilVal,
         page:      parseInt(String(q.page), 10) || 1,
         limit:     parseInt(String(q.limit), 10) || 20,
       });
@@ -30,6 +37,17 @@ export const foodsController = {
     try {
       const food = await foodsService.create(req.body as CreateFoodDto);
       created(res, food, 'Alimento creado exitosamente');
+    } catch (error) { next(error); }
+  },
+
+  async createCustom(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const perfilId = req.user!.id_perfil!;
+      const food = await foodsService.createCustom({
+        ...req.body,
+        id_perfil: perfilId
+      });
+      created(res, food, 'Alimento personalizado creado exitosamente');
     } catch (error) { next(error); }
   },
 

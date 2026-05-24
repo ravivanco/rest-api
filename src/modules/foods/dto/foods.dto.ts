@@ -71,9 +71,6 @@ export type CreateFoodDto = z.infer<typeof CreateFoodDto>;
 export const UpdateFoodDto = CreateFoodDto.partial();
 export type UpdateFoodDto = z.infer<typeof UpdateFoodDto>;
 
-/**
- * Filtros para listar alimentos.
- */
 export const ListFoodsDto = z.object({
   search:    z.string().optional(),
   categoria: z.enum(CATEGORIAS_ALIMENTO).optional(),
@@ -82,3 +79,48 @@ export const ListFoodsDto = z.object({
   limit:     z.string().optional().transform(v => Math.min(parseInt(v ?? '20') || 20, 100)),
 });
 export type ListFoodsDto = z.infer<typeof ListFoodsDto>;
+
+/**
+ * DTO para crear un alimento personalizado (desde el móvil).
+ */
+export const CreateCustomFoodDto = z.object({
+  nombre: z
+    .string({ message: 'El nombre es requerido' })
+    .min(2,   'El nombre debe tener al menos 2 caracteres')
+    .max(150, 'El nombre no puede superar 150 caracteres')
+    .trim(),
+
+  categoria: z.enum(CATEGORIAS_ALIMENTO, {
+    message: `La categoría debe ser una de: ${CATEGORIAS_ALIMENTO.join(', ')}`,
+  }),
+
+  calorias_por_100g: z
+    .number()
+    .int()
+    .min(0)
+    .max(9000)
+    .optional()
+    .default(0),
+
+  carbohidratos_g: z
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .default(0),
+
+  proteinas_g: z
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .default(0),
+
+  grasas_g: z
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .default(0),
+});
+export type CreateCustomFoodDto = z.infer<typeof CreateCustomFoodDto>;

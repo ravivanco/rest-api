@@ -20,6 +20,7 @@ import {
   INSERT_PLATO_APTITUD,
   INSERT_PLATO_INGREDIENTE,
   MATCH_INGREDIENTE_POR_NOMBRE,
+  MATCH_ALIMENTO_POR_NOMBRE,
   GET_CATALOGO_NOMBRES,
   GET_PLAN_CON_PERFIL,
   GET_SEMANA_DEL_PLAN,
@@ -113,7 +114,8 @@ interface RecipeGptPromptResponse {
 }
 
 interface AlimentoMatchado {
-  id_alimento_detalle: number;
+  id_alimento_detalle?: number | null;
+  id_alimento?: number | null;
   nombre: string;
   calorias: number;
   proteinas: number;
@@ -124,7 +126,8 @@ interface AlimentoMatchado {
 }
 
 interface IngredienteResuelto {
-  id_alimento_detalle: number;
+  id_alimento_detalle?: number | null;
+  id_alimento?: number | null;
   nombre: string;
   cantidad_g: number;
   calorias_aportadas: number;
@@ -153,7 +156,8 @@ interface CachedPlatoRow {
 }
 
 interface CachedIngredienteRow {
-  id_alimento_detalle: number;
+  id_alimento_detalle?: number | null;
+  id_alimento?: number | null;
   nombre: string;
   cantidad_g: number;
   calorias_aportadas: number;
@@ -396,6 +400,7 @@ const normalizePerfil = (row: PerfilEvaluacionRow): PerfilEvaluacionRow => {
 
 const matchIngrediente = async (
   nombreGpt: string,
+  idPerfil: number | null,
 ): Promise<AlimentoMatchado | null> => {
   const nombreLimpio = nombreGpt
     .replace(/^\d+(?:[\.,]\d+)?\s*(?:g|gr|gramos?)?\s+de\s+/i, '')
@@ -404,21 +409,39 @@ const matchIngrediente = async (
 
   if (!nombreLimpio) return null;
 
-  // Intento 1: match con el nombre completo
-  const resultado1 = await pool.query<AlimentoMatchado>(
+  // 1. Intentar en alimentos_detalle (global)
+  // Intento 1.1: match con el nombre completo
+  let resultado1 = await pool.query<AlimentoMatchado>(
     MATCH_INGREDIENTE_POR_NOMBRE,
     [`%${nombreLimpio.toLowerCase()}%`, nombreLimpio],
   );
-  if (resultado1.rows[0]) return resultado1.rows[0];
+  if (resultado1.rows[0]) return { ...resultado1.rows[0], id_alimento_detalle: resultado1.rows[0].id_alimento_detalle };
 
-  // Intento 2: solo la primera palabra (más genérico)
+  // Intento 1.2: solo la primera palabra
   const primeraPalabra = nombreLimpio.split(' ')[0];
   if (primeraPalabra && primeraPalabra.length > 3) {
     const resultado2 = await pool.query<AlimentoMatchado>(
       MATCH_INGREDIENTE_POR_NOMBRE,
       [`%${primeraPalabra.toLowerCase()}%`, primeraPalabra],
     );
-    if (resultado2.rows[0]) return resultado2.rows[0];
+    if (resultado2.rows[0]) return { ...resultado2.rows[0], id_alimento_detalle: resultado2.rows[0].id_alimento_detalle };
+  }
+
+  // 2. Intentar en alimentos (custom/globales de la otra tabla)
+  // Intento 2.1: match con el nombre completo
+  let resultado3 = await pool.query<AlimentoMatchado>(
+    MATCH_ALIMENTO_POR_NOMBRE,
+    [idPerfil, `%${nombreLimpio.toLowerCase()}%`, nombreLimpio],
+  );
+  if (resultado3.rows[0]) return { ...resultado3.rows[0], id_alimento: resultado3.rows[0].id_alimento };
+
+  // Intento 2.2: solo la primera palabra
+  if (primeraPalabra && primeraPalabra.length > 3) {
+    const resultado4 = await pool.query<AlimentoMatchado>(
+      MATCH_ALIMENTO_POR_NOMBRE,
+      [idPerfil, `%${primeraPalabra.toLowerCase()}%`, primeraPalabra],
+    );
+    if (resultado4.rows[0]) return { ...resultado4.rows[0], id_alimento: resultado4.rows[0].id_alimento };
   }
 
   return null;
@@ -426,10 +449,12 @@ const matchIngrediente = async (
 
 const resolverIngredientes = async (
   ingredientesGpt: RecipeGptPromptIngredient[],
+  idPerfil: number | null,
 ): Promise<IngredienteResuelto[]> => {
   const resueltos: IngredienteResuelto[] = [];
   const noEncontrados: string[] = [];
-  const idsUsados = new Set<number>();
+  const idsDetalleUsados = new Set<number>();
+  const idsAlimentoUsados = new Set<number>();
 
   for (const ingrediente of ingredientesGpt) {
     const cantidad = normalizarCantidad(ingrediente.cantidad_g);
@@ -442,7 +467,7 @@ const resolverIngredientes = async (
       continue;
     }
 
-    const alimento = await matchIngrediente(ingrediente.nombre_ingrediente);
+    const alimento = await matchIngrediente(ingrediente.nombre_ingrediente, idPerfil);
 
     if (!alimento) {
       console.warn(`[recipe-generator] Sin match: "${ingrediente.nombre_ingrediente}"`);
@@ -450,15 +475,25 @@ const resolverIngredientes = async (
       continue;
     }
 
-    if (idsUsados.has(alimento.id_alimento_detalle)) {
-      console.warn(`[recipe-generator] Duplicado ignorado: "${ingrediente.nombre_ingrediente}"`);
+    if (alimento.id_alimento_detalle && idsDetalleUsados.has(alimento.id_alimento_detalle)) {
+      console.warn(`[recipe-generator] Duplicado detalle ignorado: "${ingrediente.nombre_ingrediente}"`);
+      continue;
+    }
+    if (alimento.id_alimento && idsAlimentoUsados.has(alimento.id_alimento)) {
+      console.warn(`[recipe-generator] Duplicado alimento ignorado: "${ingrediente.nombre_ingrediente}"`);
       continue;
     }
 
-    idsUsados.add(alimento.id_alimento_detalle);
+    if (alimento.id_alimento_detalle) {
+      idsDetalleUsados.add(alimento.id_alimento_detalle);
+    }
+    if (alimento.id_alimento) {
+      idsAlimentoUsados.add(alimento.id_alimento);
+    }
 
     resueltos.push({
       id_alimento_detalle: alimento.id_alimento_detalle,
+      id_alimento: alimento.id_alimento,
       nombre: alimento.nombre,
       cantidad_g: cantidad,
       calorias_aportadas: Math.round((Number(alimento.calorias) * cantidad) / 100),
@@ -489,6 +524,7 @@ const resolverIngredientes = async (
 
 const generarRecetaConReintentos = async (
   buildPromptFn: () => { system: string; user: string },
+  idPerfil: number | null,
 ): Promise<{
   gptRecipe: RecipeGptPromptResponse;
   ingredientesResueltos: IngredienteResuelto[];
@@ -499,7 +535,7 @@ const generarRecetaConReintentos = async (
     try {
       const { system, user } = buildPromptFn();
       const gptRecipe = await callOpenAI(system, user);
-      const ingredientesResueltos = await resolverIngredientes(gptRecipe.ingredientes);
+      const ingredientesResueltos = await resolverIngredientes(gptRecipe.ingredientes, idPerfil);
 
       return { gptRecipe, ingredientesResueltos };
     } catch (error) {
@@ -914,6 +950,7 @@ const findCachedPlato = async (
     tiempo_preparacion_min: plato.tiempo_preparacion_min ?? null,
     ingredientes: ingredientesResult.rows.map(row => ({
       id_alimento_detalle: row.id_alimento_detalle,
+      id_alimento: row.id_alimento,
       nombre: row.nombre,
       cantidad_g: Number(row.cantidad_g),
       calorias_aportadas: Number(row.calorias_aportadas),
@@ -953,6 +990,7 @@ const findCachedPlatoGeneric = async (
     tiempo_preparacion_min: plato.tiempo_preparacion_min ?? null,
     ingredientes: ingredientesResult.rows.map(row => ({
       id_alimento_detalle: row.id_alimento_detalle,
+      id_alimento: row.id_alimento,
       nombre: row.nombre,
       cantidad_g: Number(row.cantidad_g),
       calorias_aportadas: Number(row.calorias_aportadas),
@@ -1032,7 +1070,7 @@ export const recipeGeneratorService = {
       throw new ValidationError('No hay alimentos disponibles para generar la receta');
     }
 
-    const catalogoResult = await pool.query<{ nombre: string }>(GET_CATALOGO_NOMBRES);
+    const catalogoResult = await pool.query<{ nombre: string }>(GET_CATALOGO_NOMBRES, [data.id_perfil]);
     const catalogoNombres = catalogoResult.rows.map(row => row.nombre);
 
     let caloriasObjetivo = data.calorias_objetivo;
@@ -1082,10 +1120,11 @@ export const recipeGeneratorService = {
       catalogoNombres,
       caloriasObjetivo,
       tiempoComidaNombre: data.tiempo_comida_nombre,
-    }));
+    }), data.id_perfil);
 
     const ingredientesConCalorias = ingredientesResueltos.map(item => ({
       id_alimento_detalle: item.id_alimento_detalle,
+      id_alimento: item.id_alimento,
       nombre: item.nombre,
       cantidad_g: item.cantidad_g,
       calorias_aportadas: item.calorias_aportadas,
@@ -1125,7 +1164,12 @@ export const recipeGeneratorService = {
       for (const ingrediente of ingredientesResueltos) {
         await client.query(
           INSERT_PLATO_INGREDIENTE,
-          [idPlato, ingrediente.id_alimento_detalle, ingrediente.cantidad_g],
+          [
+            idPlato,
+            ingrediente.id_alimento ?? null,
+            ingrediente.id_alimento_detalle ?? null,
+            ingrediente.cantidad_g,
+          ],
         );
       }
 
@@ -1190,7 +1234,7 @@ export const recipeGeneratorService = {
       }
     }
 
-    const catalogoResult = await pool.query<{ nombre: string }>(GET_CATALOGO_NOMBRES);
+    const catalogoResult = await pool.query<{ nombre: string }>(GET_CATALOGO_NOMBRES, [null]);
 
     if (catalogoResult.rows.length === 0) {
       throw new ValidationError('No hay alimentos disponibles para generar la receta');
@@ -1204,10 +1248,11 @@ export const recipeGeneratorService = {
       restricciones: data.restricciones ?? [],
       aptitudes: aptitudIds,
       catalogoNombres,
-    }));
+    }), null);
 
     const ingredientesConCalorias = ingredientesResueltos.map(item => ({
       id_alimento_detalle: item.id_alimento_detalle,
+      id_alimento: item.id_alimento,
       nombre: item.nombre,
       cantidad_g: item.cantidad_g,
       calorias_aportadas: item.calorias_aportadas,
@@ -1243,7 +1288,12 @@ export const recipeGeneratorService = {
       for (const ingrediente of ingredientesResueltos) {
         await client.query(
           INSERT_PLATO_INGREDIENTE,
-          [idPlato, ingrediente.id_alimento_detalle, ingrediente.cantidad_g],
+          [
+            idPlato,
+            ingrediente.id_alimento ?? null,
+            ingrediente.id_alimento_detalle ?? null,
+            ingrediente.cantidad_g,
+          ],
         );
       }
 

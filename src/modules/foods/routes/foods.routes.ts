@@ -3,7 +3,7 @@ import { foodsController } from '../controller/foods.controller';
 import { authenticate }    from '@middlewares/authenticate';
 import { requireRole }     from '@middlewares/authorize';
 import { validate }        from '@middlewares/validate';
-import { CreateFoodDto, UpdateFoodDto } from '../dto/foods.dto';
+import { CreateFoodDto, UpdateFoodDto, CreateCustomFoodDto } from '../dto/foods.dto';
 
 export const foodsRouter = Router();
 
@@ -40,6 +40,37 @@ export const foodsRouter = Router();
  *         description: Lista de alimentos paginada
  */
 foodsRouter.get('/',    foodsController.list);
+
+/**
+ * @swagger
+ * /foods/custom:
+ *   post:
+ *     summary: Crear alimento personalizado (Móvil Paciente)
+ *     tags: [Foods]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [nombre, categoria]
+ *             properties:
+ *               nombre: { type: string }
+ *               categoria: { type: string }
+ *     responses:
+ *       201:
+ *         description: Alimento personalizado creado
+ */
+foodsRouter.post(
+  '/custom',
+  authenticate,
+  requireRole('paciente', 'nutricionista'),
+  validate(CreateCustomFoodDto),
+  foodsController.createCustom,
+);
+
 foodsRouter.get('/:id', foodsController.getById);
 
 /**

@@ -407,11 +407,12 @@ export const calorieControlService = {
        JOIN menus_diarios md ON md.id_menu_diario = sc.id_menu_diario
        LEFT JOIN LATERAL (
          SELECT
-           SUM(COALESCE(ad.proteinas, 0) * pi.cantidad_g / 100) AS proteinas_totales,
-           SUM(COALESCE(ad.carbohidratos, 0) * pi.cantidad_g / 100) AS carbohidratos_totales,
-           SUM(COALESCE(ad.grasas, 0) * pi.cantidad_g / 100) AS grasas_totales
+           SUM(COALESCE(ad.proteinas, al.proteinas_g, 0) * pi.cantidad_g / 100) AS proteinas_totales,
+           SUM(COALESCE(ad.carbohidratos, al.carbohidratos_g, 0) * pi.cantidad_g / 100) AS carbohidratos_totales,
+           SUM(COALESCE(ad.grasas, al.grasas_g, 0) * pi.cantidad_g / 100) AS grasas_totales
          FROM plato_ingredientes pi
          LEFT JOIN alimentos_detalle ad ON ad.id_alimento_detalle = pi.id_alimento_detalle
+         LEFT JOIN alimentos al ON al.id_alimento = pi.id_alimento
          WHERE pi.id_plato = md.id_plato
        ) macros ON TRUE
        WHERE sc.id_perfil = $1

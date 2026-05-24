@@ -21,15 +21,15 @@ WHERE md.id_menu_diario = $1
 
 export const GET_INGREDIENTES_MENU = `
 SELECT
-  ad.nombre,
+  COALESCE(ad.nombre, al.nombre) AS nombre,
   pi.cantidad_g,
-  ROUND((ad.calorias * pi.cantidad_g / 100)::numeric, 0)::integer
+  ROUND((COALESCE(ad.calorias, al.calorias_por_100g) * pi.cantidad_g / 100)::numeric, 0)::integer
     AS calorias_aportadas
 FROM plato_ingredientes pi
-JOIN alimentos_detalle ad
-  ON ad.id_alimento_detalle = pi.id_alimento_detalle
+LEFT JOIN alimentos_detalle ad ON ad.id_alimento_detalle = pi.id_alimento_detalle
+LEFT JOIN alimentos al ON al.id_alimento = pi.id_alimento
 WHERE pi.id_plato = $1
-  AND pi.id_alimento_detalle IS NOT NULL
+  AND (pi.id_alimento_detalle IS NOT NULL OR pi.id_alimento IS NOT NULL)
 `;
 
 export const GET_MENU_REPLACE_CONTEXT = `

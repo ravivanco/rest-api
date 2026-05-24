@@ -11,6 +11,7 @@ export interface AlimentoRow {
   vitaminas: string | null;
   minerales: string | null;
   activo: boolean;
+  id_perfil: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -24,6 +25,7 @@ export const foodsRepository = {
     search?: string;
     categoria?: string;
     activo?: string;
+    id_perfil?: number;
     limit: number;
     offset: number;
   }): Promise<{ rows: AlimentoRow[]; total: number }> {
@@ -48,6 +50,13 @@ export const foodsRepository = {
       params.push(filters.activo === 'true');
     } else {
       conditions.push(`activo = TRUE`);
+    }
+
+    if (filters.id_perfil !== undefined) {
+      conditions.push(`(id_perfil IS NULL OR id_perfil = $${idx++})`);
+      params.push(filters.id_perfil);
+    } else {
+      conditions.push(`id_perfil IS NULL`);
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -90,21 +99,23 @@ export const foodsRepository = {
     vitaminas?: string | null;
     minerales?: string | null;
     imagen_url?: string | null;        // ← NUEVO
-    imagen_public_id?: string | null;        // ← NUEVO
+    imagen_public_id?: string | null;  // ← NUEVO
+    id_perfil?: number | null;
   }): Promise<AlimentoRow> {
     const result = await pool.query<AlimentoRow>(
       `INSERT INTO alimentos
        (nombre, categoria, calorias_por_100g, carbohidratos_g,
         proteinas_g, grasas_g, vitaminas, minerales,
-        imagen_url, imagen_public_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-     RETURNING *`,
+        imagen_url, imagen_public_id, id_perfil)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING *`,
       [
         data.nombre, data.categoria, data.calorias_por_100g,
         data.carbohidratos_g, data.proteinas_g, data.grasas_g,
         data.vitaminas ?? null, data.minerales ?? null,
         data.imagen_url ?? null,        // ← NUEVO
         data.imagen_public_id ?? null,  // ← NUEVO
+        data.id_perfil ?? null,
       ],
     );
     return result.rows[0];

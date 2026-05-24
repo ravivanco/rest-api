@@ -58,7 +58,11 @@ export const GET_ALIMENTOS_DETALLE_ALL = `
 export const GET_CATALOGO_NOMBRES = `
   SELECT nombre
   FROM alimentos_detalle
-  ORDER BY categoria, nombre ASC
+  UNION
+  SELECT nombre
+  FROM alimentos
+  WHERE (id_perfil IS NULL OR id_perfil = $1) AND activo = true
+  ORDER BY nombre ASC
 `;
 
 export const MATCH_INGREDIENTE_POR_NOMBRE = `
@@ -75,6 +79,26 @@ export const MATCH_INGREDIENTE_POR_NOMBRE = `
   WHERE unaccent(LOWER(nombre)) ILIKE unaccent(LOWER($1))
   ORDER BY
     CASE WHEN unaccent(LOWER(nombre)) = unaccent(LOWER($2)) THEN 0 ELSE 1 END,
+    LENGTH(nombre) ASC
+  LIMIT 1
+`;
+
+export const MATCH_ALIMENTO_POR_NOMBRE = `
+  SELECT
+    id_alimento,
+    nombre,
+    calorias_por_100g AS calorias,
+    proteinas_g AS proteinas,
+    carbohidratos_g AS carbohidratos,
+    grasas_g AS grasas,
+    NULL::numeric AS fibra,
+    NULL::numeric AS sodio
+  FROM alimentos
+  WHERE (id_perfil IS NULL OR id_perfil = $1)
+    AND activo = true
+    AND unaccent(LOWER(nombre)) ILIKE unaccent(LOWER($2))
+  ORDER BY
+    CASE WHEN unaccent(LOWER(nombre)) = unaccent(LOWER($3)) THEN 0 ELSE 1 END,
     LENGTH(nombre) ASC
   LIMIT 1
 `;
@@ -137,11 +161,13 @@ export const GET_TIEMPO_COMIDA_BY_ID = `
 export const GET_INGREDIENTES_PLATO = `
   SELECT
     pi.id_alimento_detalle,
-    ad.nombre,
+    pi.id_alimento,
+    COALESCE(ad.nombre, al.nombre) AS nombre,
     pi.cantidad_g,
-    ROUND((ad.calorias * pi.cantidad_g / 100)::numeric, 0)::integer AS calorias_aportadas
+    ROUND((COALESCE(ad.calorias, al.calorias_por_100g) * pi.cantidad_g / 100)::numeric, 0)::integer AS calorias_aportadas
   FROM plato_ingredientes pi
-  JOIN alimentos_detalle ad ON ad.id_alimento_detalle = pi.id_alimento_detalle
+  LEFT JOIN alimentos_detalle ad ON ad.id_alimento_detalle = pi.id_alimento_detalle
+  LEFT JOIN alimentos al ON al.id_alimento = pi.id_alimento
   WHERE pi.id_plato = $1
 `;
 
@@ -170,7 +196,7 @@ export const INSERT_PLATO_INGREDIENTE = `
     id_alimento_detalle,
     cantidad_g
   )
-  VALUES ($1, NULL, $2, $3)
+  VALUES ($1, $2, $3, $4)
 `;
 
 export const INSERT_PLATO_APTITUD = `

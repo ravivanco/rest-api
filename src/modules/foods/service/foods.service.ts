@@ -8,6 +8,7 @@ export const foodsService = {
     search?:    string;
     categoria?: string;
     activo?:    string;
+    id_perfil?: number;
     page:       number;
     limit:      number;
   }) {
@@ -31,6 +32,15 @@ export const foodsService = {
 
 
   async create(data: CreateFoodDto) {
+    // Verificar nombre único
+    const exists = await foodsRepository.existsByName(data.nombre);
+    if (exists) throw new ConflictError(`El alimento '${data.nombre}' ya existe`);
+
+    return foodsRepository.create(data);
+  },
+
+
+  async createCustom(data: any & { id_perfil: number }) {
     // Verificar nombre único
     const exists = await foodsRepository.existsByName(data.nombre);
     if (exists) throw new ConflictError(`El alimento '${data.nombre}' ya existe`);

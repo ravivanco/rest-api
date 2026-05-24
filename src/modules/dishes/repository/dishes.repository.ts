@@ -78,12 +78,12 @@ export const dishesRepository = {
        FROM platos p
        LEFT JOIN LATERAL (
          SELECT
-           COALESCE(ROUND(SUM(COALESCE(ad.proteinas, 0) * pi.cantidad_g / 100)::numeric, 2), 0)::double precision AS proteinas_totales,
-           COALESCE(ROUND(SUM(COALESCE(ad.carbohidratos, 0) * pi.cantidad_g / 100)::numeric, 2), 0)::double precision AS carbohidratos_totales,
-           COALESCE(ROUND(SUM(COALESCE(ad.grasas, 0) * pi.cantidad_g / 100)::numeric, 2), 0)::double precision AS grasas_totales
+           COALESCE(ROUND(SUM(COALESCE(ad.proteinas, al.proteinas_g, 0) * pi.cantidad_g / 100)::numeric, 2), 0)::double precision AS proteinas_totales,
+           COALESCE(ROUND(SUM(COALESCE(ad.carbohidratos, al.carbohidratos_g, 0) * pi.cantidad_g / 100)::numeric, 2), 0)::double precision AS carbohidratos_totales,
+           COALESCE(ROUND(SUM(COALESCE(ad.grasas, al.grasas_g, 0) * pi.cantidad_g / 100)::numeric, 2), 0)::double precision AS grasas_totales
          FROM plato_ingredientes pi
-         LEFT JOIN alimentos_detalle ad
-           ON ad.id_alimento_detalle = pi.id_alimento_detalle
+         LEFT JOIN alimentos_detalle ad ON ad.id_alimento_detalle = pi.id_alimento_detalle
+         LEFT JOIN alimentos al ON al.id_alimento = pi.id_alimento
          WHERE pi.id_plato = p.id_plato
        ) macros ON TRUE
        ${where}
@@ -125,12 +125,12 @@ export const dishesRepository = {
        FROM platos p
        LEFT JOIN LATERAL (
          SELECT
-           COALESCE(ROUND(SUM(COALESCE(ad.proteinas, 0) * pi.cantidad_g / 100)::numeric, 2), 0)::double precision AS proteinas_totales,
-           COALESCE(ROUND(SUM(COALESCE(ad.carbohidratos, 0) * pi.cantidad_g / 100)::numeric, 2), 0)::double precision AS carbohidratos_totales,
-           COALESCE(ROUND(SUM(COALESCE(ad.grasas, 0) * pi.cantidad_g / 100)::numeric, 2), 0)::double precision AS grasas_totales
+           COALESCE(ROUND(SUM(COALESCE(ad.proteinas, al.proteinas_g, 0) * pi.cantidad_g / 100)::numeric, 2), 0)::double precision AS proteinas_totales,
+           COALESCE(ROUND(SUM(COALESCE(ad.carbohidratos, al.carbohidratos_g, 0) * pi.cantidad_g / 100)::numeric, 2), 0)::double precision AS carbohidratos_totales,
+           COALESCE(ROUND(SUM(COALESCE(ad.grasas, al.grasas_g, 0) * pi.cantidad_g / 100)::numeric, 2), 0)::double precision AS grasas_totales
          FROM plato_ingredientes pi
-         LEFT JOIN alimentos_detalle ad
-           ON ad.id_alimento_detalle = pi.id_alimento_detalle
+         LEFT JOIN alimentos_detalle ad ON ad.id_alimento_detalle = pi.id_alimento_detalle
+         LEFT JOIN alimentos al ON al.id_alimento = pi.id_alimento
          WHERE pi.id_plato = p.id_plato
        ) macros ON TRUE
        WHERE p.id_plato = $1`,
@@ -147,15 +147,15 @@ export const dishesRepository = {
            pi.cantidad_g,
            pi.id_alimento_detalle,
            pi.id_alimento,
-           COALESCE(ad.nombre, al.nombre) AS nombre,
-           COALESCE(ad.calorias, al.calorias_por_100g) AS calorias,
-           ad.proteinas,
-           ad.carbohidratos,
-           ad.grasas,
-           ad.fibra,
-           ad.sodio,
-           ROUND((COALESCE(ad.calorias, al.calorias_por_100g)
-             * pi.cantidad_g / 100)::numeric, 0)::integer AS calorias_aportadas
+            COALESCE(ad.nombre, al.nombre) AS nombre,
+            COALESCE(ad.calorias, al.calorias_por_100g) AS calorias,
+            COALESCE(ad.proteinas, al.proteinas_g) AS proteinas,
+            COALESCE(ad.carbohidratos, al.carbohidratos_g) AS carbohidratos,
+            COALESCE(ad.grasas, al.grasas_g) AS grasas,
+            ad.fibra,
+            ad.sodio,
+            ROUND((COALESCE(ad.calorias, al.calorias_por_100g)
+              * pi.cantidad_g / 100)::numeric, 0)::integer AS calorias_aportadas
          FROM plato_ingredientes pi
          LEFT JOIN alimentos_detalle ad
            ON ad.id_alimento_detalle = pi.id_alimento_detalle
@@ -394,11 +394,12 @@ export const dishesRepository = {
         `UPDATE platos
          SET calorias_totales = (
            SELECT COALESCE(
-             SUM(ROUND((a.calorias_por_100g::numeric * pi.cantidad_g) / 100, 0)),
+             SUM(ROUND((COALESCE(ad.calorias, al.calorias_por_100g)::numeric * pi.cantidad_g) / 100, 0)),
              0
            )
            FROM plato_ingredientes pi
-           JOIN alimentos          a ON a.id_alimento = pi.id_alimento
+           LEFT JOIN alimentos_detalle ad ON ad.id_alimento_detalle = pi.id_alimento_detalle
+           LEFT JOIN alimentos          al ON al.id_alimento = pi.id_alimento
            WHERE pi.id_plato = $1
          ),
          updated_at = NOW()
@@ -434,10 +435,12 @@ export const dishesRepository = {
         `UPDATE platos
          SET calorias_totales = (
            SELECT COALESCE(
-             SUM(ROUND((a.calorias_por_100g::numeric * pi.cantidad_g) / 100, 0)), 0
+             SUM(ROUND((COALESCE(ad.calorias, al.calorias_por_100g)::numeric * pi.cantidad_g) / 100, 0)),
+             0
            )
            FROM plato_ingredientes pi
-           JOIN alimentos          a ON a.id_alimento = pi.id_alimento
+           LEFT JOIN alimentos_detalle ad ON ad.id_alimento_detalle = pi.id_alimento_detalle
+           LEFT JOIN alimentos          al ON al.id_alimento = pi.id_alimento
            WHERE pi.id_plato = $1
          ),
          updated_at = NOW()
