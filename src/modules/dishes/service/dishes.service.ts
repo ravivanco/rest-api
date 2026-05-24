@@ -26,18 +26,46 @@ export const dishesService = {
     const result = await dishesRepository.findByIdWithIngredients(id);
     if (!result) throw new NotFoundError('Plato');
     
+    const stepsText = result.plato.modo_preparacion;
+
     const platoConAliases = {
       ...result.plato,
       nombre_plato:      result.plato.nombre,
       calorias:          result.plato.calorias_totales,
       descripcion_plato: result.plato.descripcion,
       receta:            result.plato.descripcion,
-      pasos_preparacion: result.plato.modo_preparacion,
+      pasos_preparacion: stepsText,
+      preparation:       stepsText,
+      preparacion:       stepsText,
+      instructions:      stepsText,
+      steps:             stepsText,
     };
 
+    const mappedIngredients = result.ingredientes.map(i => ({
+      ...i,
+      nombre_alimento: i.nombre,
+      gramos:          i.cantidad_g,
+      calorias:        i.calorias,
+    }));
+
     return {
-      ...result,
-      plato: platoConAliases,
+      // Nested format (para compatibilidad con Web/Dashboard anterior)
+      plato:        platoConAliases,
+      ingredientes: mappedIngredients,
+      aptitudes:    result.aptitudes,
+
+      // Flat format (para compatibilidad con el mapeo directo de la App Móvil)
+      ...platoConAliases,
+      ingredients:  mappedIngredients,
+      alimentos:    mappedIngredients,
+      insumos:      mappedIngredients,
+
+      // Preparación flat a nivel raíz
+      pasos_preparacion: stepsText,
+      preparation:       stepsText,
+      preparacion:       stepsText,
+      instructions:      stepsText,
+      steps:             stepsText,
     };
   },
 
