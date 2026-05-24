@@ -10,6 +10,7 @@ export interface EjercicioRow {
   intensidad:                  string;
   nivel_actividad_recomendado: string | null;
   objetivo_recomendado:        string | null;
+  deporte:                     string | null;
   activo:                      boolean;
   created_at:                  string;
   updated_at:                  string;
@@ -98,18 +99,20 @@ export const exercisesRepository = {
     intensidad:                  string;
     nivel_actividad_recomendado?: string | null;
     objetivo_recomendado?:       string | null;
+    deporte?:                    string | null;
   }): Promise<EjercicioRow> {
     const result = await pool.query<EjercicioRow>(
       `INSERT INTO ejercicios
          (nombre, descripcion, categoria, duracion_min, frecuencia_semanal,
-          intensidad, nivel_actividad_recomendado, objetivo_recomendado)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          intensidad, nivel_actividad_recomendado, objetivo_recomendado, deporte)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
       [
         data.nombre, data.descripcion ?? null, data.categoria,
         data.duracion_min, data.frecuencia_semanal, data.intensidad,
         data.nivel_actividad_recomendado ?? null,
         data.objetivo_recomendado ?? null,
+        data.deporte ?? null,
       ],
     );
     return result.rows[0];
@@ -125,6 +128,7 @@ export const exercisesRepository = {
     intensidad:                  string;
     nivel_actividad_recomendado: string | null;
     objetivo_recomendado:        string | null;
+    deporte:                     string | null;
   }>): Promise<EjercicioRow | null> {
 
     const fields: string[] = [];
@@ -137,6 +141,7 @@ export const exercisesRepository = {
     if (data.duracion_min                !== undefined) { fields.push(`duracion_min = $${idx++}`);                values.push(data.duracion_min); }
     if (data.frecuencia_semanal          !== undefined) { fields.push(`frecuencia_semanal = $${idx++}`);          values.push(data.frecuencia_semanal); }
     if (data.intensidad                  !== undefined) { fields.push(`intensidad = $${idx++}`);                  values.push(data.intensidad); }
+    if (data.deporte                     !== undefined) { fields.push(`deporte = $${idx++}`);                     values.push(data.deporte); }
     if (data.nivel_actividad_recomendado !== undefined) { fields.push(`nivel_actividad_recomendado = $${idx++}`); values.push(data.nivel_actividad_recomendado); }
     if (data.objetivo_recomendado        !== undefined) { fields.push(`objetivo_recomendado = $${idx++}`);        values.push(data.objetivo_recomendado); }
 

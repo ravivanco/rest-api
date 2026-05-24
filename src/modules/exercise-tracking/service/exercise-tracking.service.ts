@@ -11,10 +11,41 @@ export const exerciseTrackingService = {
    * Aplica RN-03: solo en el día correspondiente.
    */
   async trackExercise(perfilId: number, data: TrackExerciseDto) {
+    let id_ejercicio_diario = data.id_ejercicio_diario;
+
+    if (!id_ejercicio_diario) {
+      // Resolve id_ejercicio_diario from id_ejercicio and fecha
+      const idEjercicioNum = typeof data.id_ejercicio === 'string'
+        ? parseInt(data.id_ejercicio, 10)
+        : data.id_ejercicio;
+
+      if (!idEjercicioNum || isNaN(idEjercicioNum)) {
+        throw new NotFoundError('ID de ejercicio no válido');
+      }
+
+      const checkQuery = await pool.query<{ id_ejercicio_diario: number }>(
+        `SELECT ed.id_ejercicio_diario
+         FROM   ejercicios_diarios ed
+         JOIN   dias_plan          dp ON dp.id_dia_plan = ed.id_dia_plan
+         JOIN   planes_semanales   ps ON ps.id_semana   = dp.id_semana
+         JOIN   planes_nutricionales pn ON pn.id_plan   = ps.id_plan
+         WHERE  pn.id_perfil = $1
+           AND  dp.fecha      = $2
+           AND  ed.id_ejercicio = $3
+           AND  pn.estado     = 'activo'`,
+        [perfilId, data.fecha, idEjercicioNum]
+      );
+
+      if (checkQuery.rows.length === 0) {
+        throw new NotFoundError('No se encontró el ejercicio programado para esta fecha');
+      }
+
+      id_ejercicio_diario = checkQuery.rows[0].id_ejercicio_diario;
+    }
 
     // 1. Obtener fecha del ejercicio diario
     const fechaEjercicio = await exerciseTrackingRepository.getExerciseDate(
-      data.id_ejercicio_diario
+      id_ejercicio_diario!
     );
 
     if (!fechaEjercicio) {
@@ -32,7 +63,7 @@ export const exerciseTrackingService = {
        JOIN   planes_semanales     ps ON ps.id_semana   = dp.id_semana
        JOIN   planes_nutricionales pn ON pn.id_plan     = ps.id_plan
        WHERE  ed.id_ejercicio_diario = $1`,
-      [data.id_ejercicio_diario],
+      [id_ejercicio_diario],
     );
 
     if (!ejercicioCheck.rows[0] || ejercicioCheck.rows[0].id_perfil !== perfilId) {
@@ -40,28 +71,53 @@ export const exerciseTrackingService = {
     }
 
     // 4. Guardar el seguimiento
+    const completadoVal = data.completado !== undefined ? data.completado : true;
     const seguimiento = await exerciseTrackingRepository.upsert({
-      id_ejercicio_diario: data.id_ejercicio_diario,
+      id_ejercicio_diario: id_ejercicio_diario!,
       id_perfil:           perfilId,
-      completado:          data.completado,
+      completado:          completadoVal,
       hora_registro:       data.hora_registro,
     });
 
-    return { seguimiento };
+    return { success: true, seguimiento };
   },
 
 
   /**
-   * Obtiene los ejercicios del día actual con su estado.
+   * Obtiene los ejercicios de un día específico con su estado.
    */
-  async getTodayExercises(perfilId: number) {
-    const ejercicios = await exerciseTrackingRepository.findTodayByPerfil(perfilId);
+  async getTodayExercises(perfilId: number, fecha?: string) {
+    const ejercicios = await exerciseTrackingRepository.findTodayByPerfil(perfilId, fecha);
+    const targetDate = fecha || new Date().toISOString().split('T')[0];
+
+    const mappedExercises = ejercicios.map(e => ({
+      id_ejercicio:         e.id_ejercicio,
+      id_ejercicio_diario:  e.id_ejercicio_diario,
+      nombre:               e.nombre_ejercicio,
+      nombre_ejercicio:     e.nombre_ejercicio,
+      descripcion:          e.descripcion_ejercicio || '',
+      duracion_min:         e.duracion_min,
+      series:               '',
+      bloques:              '',
+      distancia:            '',
+      repeticiones:         '',
+      intensidad:           e.intensidad,
+      status:
+        !e.id_seguimiento_ejercicio ? 'pending' :
+        e.completado ? 'done' : 'skip',
+      estado:
+        !e.id_seguimiento_ejercicio ? 'pendiente' :
+        e.completado ? 'completado' : 'no_completado',
+      hora_registro:        e.hora_registro,
+      puede_registrar:      true,
+    }));
 
     if (ejercicios.length === 0) {
       return {
         tiene_ejercicios_hoy: false,
-        mensaje: 'No tienes ejercicios programados para hoy.',
+        mensaje: 'No tienes ejercicios programados para este día.',
         ejercicios: [],
+        exercises: [],
         resumen: null,
       };
     }
@@ -71,18 +127,9 @@ export const exerciseTrackingService = {
 
     return {
       tiene_ejercicios_hoy: true,
-      fecha:                new Date().toISOString().split('T')[0],
-      ejercicios: ejercicios.map(e => ({
-        id_ejercicio_diario:  e.id_ejercicio_diario,
-        nombre_ejercicio:     e.nombre_ejercicio,
-        duracion_min:         e.duracion_min,
-        intensidad:           e.intensidad,
-        estado:
-          !e.id_seguimiento_ejercicio ? 'pendiente' :
-          e.completado ? 'completado' : 'no_completado',
-        hora_registro: e.hora_registro,
-        puede_registrar: true,
-      })),
+      fecha:                targetDate,
+      ejercicios:           mappedExercises,
+      exercises:            mappedExercises,
       resumen: {
         total:        ejercicios.length,
         completados,

@@ -7,7 +7,9 @@ export interface SeguimientoEjercicioRow {
   fecha_registro:           string;
   completado:               boolean;
   hora_registro:            string | null;
+  id_ejercicio?:            number;
   nombre_ejercicio?:        string;
+  descripcion_ejercicio?:   string | null;
   duracion_min?:            number;
   intensidad?:              string;
   dia_semana?:              string;
@@ -49,12 +51,15 @@ export const exerciseTrackingRepository = {
 
 
   /**
-   * Obtiene los ejercicios del día actual del paciente con su estado.
+   * Obtiene los ejercicios de un día específico del paciente con su estado.
    */
-  async findTodayByPerfil(perfilId: number): Promise<SeguimientoEjercicioRow[]> {
+  async findTodayByPerfil(perfilId: number, fecha?: string): Promise<SeguimientoEjercicioRow[]> {
+    const targetDate = fecha || new Date().toISOString().split('T')[0];
     const result = await pool.query<SeguimientoEjercicioRow>(
       `SELECT ed.id_ejercicio_diario,
+              ed.id_ejercicio,
               e.nombre     AS nombre_ejercicio,
+              e.descripcion AS descripcion_ejercicio,
               e.duracion_min,
               e.intensidad,
               e.categoria,
@@ -74,9 +79,9 @@ export const exerciseTrackingRepository = {
        WHERE  pn.id_perfil        = $1
          AND  pn.estado           = 'activo'
          AND  pn.modulo_habilitado = TRUE
-         AND  dp.fecha            = CURRENT_DATE
+         AND  dp.fecha            = $2
        ORDER  BY e.nombre ASC`,
-      [perfilId],
+      [perfilId, targetDate],
     );
     return result.rows;
   },

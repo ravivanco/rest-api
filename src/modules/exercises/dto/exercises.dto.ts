@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 const INTENSIDADES       = ['baja', 'media', 'alta'] as const;
 const NIVELES_ACTIVIDAD  = ['sedentario', 'bajo', 'medio', 'alto'] as const;
+const DEPORTES_VALIDOS   = ['gimnasio', 'running', 'futbol', 'basquet', 'ciclismo', 'natacion'] as const;
 
 /**
  * DTO para crear o actualizar un ejercicio.
@@ -40,6 +41,13 @@ export const CreateExerciseDto = z.object({
   intensidad: z.enum(INTENSIDADES, {
     message: 'La intensidad es requerida',
   }),
+
+  deporte: z
+    .enum(DEPORTES_VALIDOS, {
+      message: 'Deporte inválido. Valores permitidos: gimnasio, running, futbol, basquet, ciclismo, natacion'
+    })
+    .optional()
+    .nullable(),
 
   nivel_actividad_recomendado: z
     .enum(NIVELES_ACTIVIDAD)

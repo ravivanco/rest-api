@@ -1,0 +1,65 @@
+### ARCHIVO DE PRUEBAS PARA EL MÓDULO DE EJERCICIOS (MÓVIL ↔ BACK-END)
+### Puedes usar la extensión "REST Client" o "Thunder Client" en VS Code
+
+@baseUrl = http://localhost:3000/api
+
+
+### 1. INICIAR SESIÓN (Obtener Access Token de Paciente)
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "correo_institucional": "paciente.peso@decokasas.com",
+  "contrasena": "PesoClave123!"
+}
+
+
+### Guardamos el access_token obtenido del login
+@accessToken = {{login.response.body.data.access_token}}
+
+
+### 2. OBTENER CATÁLOGO DE EJERCICIOS
+### Debe retornar la lista de ejercicios con el campo "deporte"
+GET {{baseUrl}}/exercises?limit=5
+Authorization: Bearer {{accessToken}}
+
+
+### 3. OBTENER EJERCICIOS DEL DÍA (Mi Plan) - HOY
+### Retorna los ejercicios asignados para hoy con soporte de campos móviles:
+### "exercises", "status" ("pending", "done", "skip") y "series"/"bloques"/"distancia"/"repeticiones"
+GET {{baseUrl}}/exercise-tracking/today
+Authorization: Bearer {{accessToken}}
+
+
+### 4. OBTENER EJERCICIOS DE UN DÍA ESPECÍFICO
+### Consulta el historial usando el parámetro opcional ?date=YYYY-MM-DD
+GET {{baseUrl}}/exercise-tracking/today?date=2026-05-23
+Authorization: Bearer {{accessToken}}
+
+
+### 5. REGISTRAR PROGRESO / COMPLETAR EJERCICIO (Formato Móvil Nuevo)
+### Envía el id_ejercicio y la fecha. El backend resolverá automáticamente.
+### Nota: El ejercicio de catálogo con ID 1 debe estar programado para el día de la fecha en el plan del paciente.
+POST {{baseUrl}}/exercise-tracking
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "id_ejercicio": 1,
+  "fecha": "2026-05-24"
+}
+
+
+### 6. REGISTRAR PROGRESO / COMPLETAR EJERCICIO (Formato Anterior)
+### Registra el progreso usando el id_ejercicio_diario
+### Reemplaza el ID "3" con un id_ejercicio_diario real de los devueltos en el paso 3 o 4
+POST {{baseUrl}}/exercise-tracking
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "id_ejercicio_diario": 3,
+  "completado": true,
+  "hora_registro": "07:30"
+}

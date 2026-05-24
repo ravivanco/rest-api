@@ -20,7 +20,11 @@ export const exerciseTrackingController = {
 
   async getToday(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await exerciseTrackingService.getTodayExercises(req.user!.id_perfil!);
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      const queryDate = req.query.date as string | undefined;
+      const date = queryDate && dateRegex.test(queryDate) ? queryDate : undefined;
+
+      const result = await exerciseTrackingService.getTodayExercises(req.user!.id_perfil!, date);
       ok(res, result);
     } catch (error) { next(error); }
   },
