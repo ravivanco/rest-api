@@ -55,6 +55,43 @@ weightRecordsRouter.post(
   weightRecordsController.create,
 );
 
+/**
+ * @swagger
+ * /weight-records/me:
+ *   get:
+ *     summary: Historial de peso del paciente (propio)
+ *     tags: [Weight Records]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           example: 30
+ *     responses:
+ *       200:
+ *         description: Historial paginado con diferencias vs. registro anterior
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 - id_registro_peso: 10
+ *                   id_perfil: 45
+ *                   fecha: "2026-05-24"
+ *                   peso_kg: 82.4
+ *                   created_at: "2026-05-24T14:10:00.000Z"
+ *                   diferencia_vs_anterior: -0.3
+ *               meta:
+ *                 page: 1
+ *                 limit: 30
+ *                 total: 12
+ *                 total_pages: 1
+ */
 weightRecordsRouter.get(
   '/me',
   authenticate,
@@ -62,6 +99,38 @@ weightRecordsRouter.get(
   weightRecordsController.getMyHistory,
 );
 
+/**
+ * @swagger
+ * /weight-records/me/chart:
+ *   get:
+ *     summary: Serie para grafico de peso (propio)
+ *     tags: [Weight Records]
+ *     parameters:
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [7d, 30d, 90d]
+ *           example: 30d
+ *     responses:
+ *       200:
+ *         description: Serie de peso para grafico
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 total_registros: 12
+ *                 peso_inicial: 85.2
+ *                 peso_actual: 82.4
+ *                 variacion_total: -2.8
+ *                 periodo_dias: 30
+ *                 serie:
+ *                   - fecha: "2026-04-25"
+ *                     peso_kg: 85.2
+ *                   - fecha: "2026-05-24"
+ *                     peso_kg: 82.4
+ */
 weightRecordsRouter.get(
   '/me/chart',
   authenticate,
@@ -69,6 +138,49 @@ weightRecordsRouter.get(
   weightRecordsController.getMyChart,
 );
 
+/**
+ * @swagger
+ * /weight-records/patient/{id}:
+ *   get:
+ *     summary: Historial de peso de un paciente (nutricionista)
+ *     tags: [Weight Records]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 45
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           example: 30
+ *     responses:
+ *       200:
+ *         description: Historial paginado con diferencias vs. registro anterior
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 - id_registro_peso: 10
+ *                   id_perfil: 45
+ *                   fecha: "2026-05-24"
+ *                   peso_kg: 82.4
+ *                   created_at: "2026-05-24T14:10:00.000Z"
+ *                   diferencia_vs_anterior: -0.3
+ *               meta:
+ *                 page: 1
+ *                 limit: 30
+ *                 total: 12
+ *                 total_pages: 1
+ */
 weightRecordsRouter.get(
   '/patient/:id',
   authenticate,
@@ -76,6 +188,44 @@ weightRecordsRouter.get(
   weightRecordsController.getPatientHistory,
 );
 
+/**
+ * @swagger
+ * /weight-records/patient/{id}/chart:
+ *   get:
+ *     summary: Serie para grafico de peso de un paciente (nutricionista)
+ *     tags: [Weight Records]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 45
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [7d, 30d, 90d]
+ *           example: 30d
+ *     responses:
+ *       200:
+ *         description: Serie de peso para grafico
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 total_registros: 12
+ *                 peso_inicial: 85.2
+ *                 peso_actual: 82.4
+ *                 variacion_total: -2.8
+ *                 periodo_dias: 30
+ *                 serie:
+ *                   - fecha: "2026-04-25"
+ *                     peso_kg: 85.2
+ *                   - fecha: "2026-05-24"
+ *                     peso_kg: 82.4
+ */
 weightRecordsRouter.get(
   '/patient/:id/chart',
   authenticate,
