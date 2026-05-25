@@ -140,6 +140,27 @@ export const UpdateAdminUserStatusDto = z.object({
 
 export type UpdateAdminUserStatusDto = z.infer<typeof UpdateAdminUserStatusDto>;
 
+export const UpdateNutritionistInfoDto = z
+  .object({
+    nombres: z.string().min(2).max(100).trim().optional(),
+    apellidos: z.string().min(2).max(100).trim().optional(),
+    fecha_nacimiento: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha invalido. Usa YYYY-MM-DD')
+      .optional(),
+    sexo: z.enum(['M', 'F', 'O']).optional(),
+    perfil_nutricionista: z
+      .object({
+        telefono_contacto: z.string().max(20).trim().optional().nullable(),
+      })
+      .optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'Debes enviar al menos un campo para actualizar',
+  });
+
+export type UpdateNutritionistInfoDto = z.infer<typeof UpdateNutritionistInfoDto>;
+
 export const AdminUserIdParamDto = z.object({
   id: z.coerce.number().int().positive(),
 });

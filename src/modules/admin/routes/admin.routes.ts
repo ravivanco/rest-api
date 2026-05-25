@@ -8,6 +8,7 @@ import {
   CreateNutritionistDto,
   UpdateAdminUserDto,
   UpdateAdminUserStatusDto,
+  UpdateNutritionistInfoDto,
 } from '../dto/admin.dto';
 
 export const adminRouter = Router();
@@ -148,6 +149,83 @@ adminRouter.post(
   '/nutritionists',
   validate(CreateNutritionistDto),
   adminController.createNutritionist,
+);
+
+/**
+ * @swagger
+ * /admin/nutritionists/{id}:
+ *   get:
+ *     summary: Obtener informacion de una nutricionista
+ *     tags: [Admin]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Informacion de la nutricionista
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
+adminRouter.get('/nutritionists/:id', adminController.getNutritionistDetail);
+
+/**
+ * @swagger
+ * /admin/nutritionists/{id}:
+ *   patch:
+ *     summary: Editar datos permitidos de una nutricionista
+ *     tags: [Admin]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nombres:
+ *                 type: string
+ *               apellidos:
+ *                 type: string
+ *               fecha_nacimiento:
+ *                 type: string
+ *                 format: date
+ *               sexo:
+ *                 type: string
+ *                 enum: [M, F, O]
+ *               perfil_nutricionista:
+ *                 type: object
+ *                 properties:
+ *                   telefono_contacto:
+ *                     type: string
+ *                     nullable: true
+ *     responses:
+ *       200:
+ *         description: Nutricionista actualizada correctamente
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
+adminRouter.patch(
+  '/nutritionists/:id',
+  validate(UpdateNutritionistInfoDto),
+  adminController.updateNutritionistInfo,
 );
 
 /**

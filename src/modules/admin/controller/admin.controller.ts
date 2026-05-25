@@ -7,6 +7,7 @@ import {
   CreateNutritionistDto,
   UpdateAdminUserDto,
   UpdateAdminUserStatusDto,
+  UpdateNutritionistInfoDto,
 } from '../dto/admin.dto';
 import { adminService } from '../service/admin.service';
 
@@ -63,6 +64,37 @@ export const adminController = {
       const payload = req.body as UpdateAdminUserStatusDto;
       const result = await adminService.updateUserStatus(req.user!.id, paramsParsed.data.id, payload.estado);
       ok(res, result, 'Estado de cuenta actualizado correctamente');
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getNutritionistDetail(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const paramsParsed = AdminUserIdParamDto.safeParse(req.params);
+      if (!paramsParsed.success) {
+        next(paramsParsed.error);
+        return;
+      }
+
+      const result = await adminService.getNutritionistDetail(paramsParsed.data.id);
+      ok(res, result);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async updateNutritionistInfo(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const paramsParsed = AdminUserIdParamDto.safeParse(req.params);
+      if (!paramsParsed.success) {
+        next(paramsParsed.error);
+        return;
+      }
+
+      const payload = req.body as UpdateNutritionistInfoDto;
+      const result = await adminService.updateNutritionistInfo(paramsParsed.data.id, payload);
+      ok(res, result, 'Nutricionista actualizada correctamente');
     } catch (error) {
       next(error);
     }

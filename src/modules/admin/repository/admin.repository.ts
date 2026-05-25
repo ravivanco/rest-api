@@ -35,6 +35,18 @@ export interface AdminUserRow {
   fecha_registro: string;
 }
 
+export interface NutritionistDetailRow {
+  id_usuario: number;
+  nombres: string;
+  apellidos: string;
+  correo_institucional: string;
+  fecha_nacimiento: string;
+  sexo: 'M' | 'F' | 'O';
+  numero_registro_profesional: string;
+  especialidad: string | null;
+  telefono_contacto: string | null;
+}
+
 const SORT_FIELD_MAP: Record<'fecha_registro' | 'nombres' | 'rol', string> = {
   fecha_registro: 'u.fecha_registro',
   nombres: 'u.nombres',
@@ -392,6 +404,27 @@ export const adminRepository = {
           horario_atencion
        FROM perfiles_nutricionista
        WHERE id_usuario = $1`,
+      [idUsuario],
+    );
+
+    return result.rows[0] ?? null;
+  },
+
+  async findNutritionistDetailByUserId(idUsuario: number): Promise<NutritionistDetailRow | null> {
+    const result = await pool.query<NutritionistDetailRow>(
+      `SELECT
+          u.id_usuario,
+          u.nombres,
+          u.apellidos,
+          u.correo_institucional,
+          u.fecha_nacimiento,
+          u.sexo,
+          pn.numero_registro_profesional,
+          pn.especialidad,
+          pn.telefono_contacto
+       FROM usuarios u
+       INNER JOIN perfiles_nutricionista pn ON pn.id_usuario = u.id_usuario
+       WHERE u.id_usuario = $1`,
       [idUsuario],
     );
 

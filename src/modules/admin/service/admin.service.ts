@@ -11,6 +11,7 @@ import {
   AdminListUsersQueryDto,
   CreateNutritionistDto,
   UpdateAdminUserDto,
+  UpdateNutritionistInfoDto,
 } from '../dto/admin.dto';
 
 const generateTemporaryPassword = (length = 12): string => {
@@ -210,6 +211,69 @@ export const adminService = {
     }
 
     return updated;
+  },
+
+  async getNutritionistDetail(idUsuario: number) {
+    const existing = await adminRepository.findUserById(idUsuario);
+    if (!existing) {
+      throw new NotFoundError('Usuario');
+    }
+
+    if (existing.rol !== 'nutricionista') {
+      throw new BusinessRuleError('El usuario no es un nutricionista');
+    }
+
+    const detail = await adminRepository.findNutritionistDetailByUserId(idUsuario);
+    if (!detail) {
+      throw new NotFoundError('Perfil de nutricionista');
+    }
+
+    return {
+      id_usuario: detail.id_usuario,
+      nombres: detail.nombres,
+      apellidos: detail.apellidos,
+      correo_institucional: detail.correo_institucional,
+      fecha_nacimiento: detail.fecha_nacimiento,
+      sexo: detail.sexo,
+      perfil_nutricionista: {
+        numero_registro_profesional: detail.numero_registro_profesional,
+        especialidad: detail.especialidad,
+        telefono_contacto: detail.telefono_contacto,
+      },
+    };
+  },
+
+  async updateNutritionistInfo(idUsuario: number, payload: UpdateNutritionistInfoDto) {
+    const existing = await adminRepository.findUserById(idUsuario);
+    if (!existing) {
+      throw new NotFoundError('Usuario');
+    }
+
+    if (existing.rol !== 'nutricionista') {
+      throw new BusinessRuleError('El usuario no es un nutricionista');
+    }
+
+    const nutritionistProfile = await adminRepository.findNutritionistProfileByUserId(idUsuario);
+    if (!nutritionistProfile) {
+      throw new NotFoundError('Perfil de nutricionista');
+    }
+
+    await adminRepository.updateUserAndProfile({
+      id_usuario: idUsuario,
+      userFields: {
+        nombres: payload.nombres,
+        apellidos: payload.apellidos,
+        fecha_nacimiento: payload.fecha_nacimiento,
+        sexo: payload.sexo,
+      },
+      nutritionistProfileFields: payload.perfil_nutricionista
+        ? {
+          telefono_contacto: payload.perfil_nutricionista.telefono_contacto,
+        }
+        : undefined,
+    });
+
+    return this.getNutritionistDetail(idUsuario);
   },
 
   async resetUserPassword(idUsuario: number, providedPassword?: string) {
