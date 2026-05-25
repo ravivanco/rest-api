@@ -213,6 +213,20 @@ export const adminService = {
     return updated;
   },
 
+  async updateNutritionistFull(idUsuario: number, payload: UpdateAdminUserDto) {
+    const existing = await adminRepository.findUserById(idUsuario);
+    if (!existing) {
+      throw new NotFoundError('Usuario');
+    }
+
+    if (existing.rol !== 'nutricionista') {
+      throw new BusinessRuleError('El usuario no es un nutricionista');
+    }
+
+    await this.updateUser(idUsuario, payload);
+    return this.getNutritionistDetail(idUsuario);
+  },
+
   async getNutritionistDetail(idUsuario: number) {
     const existing = await adminRepository.findUserById(idUsuario);
     if (!existing) {

@@ -100,6 +100,22 @@ export const adminController = {
     }
   },
 
+  async updateNutritionistFull(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const paramsParsed = AdminUserIdParamDto.safeParse(req.params);
+      if (!paramsParsed.success) {
+        next(paramsParsed.error);
+        return;
+      }
+
+      const payload = req.body as UpdateAdminUserDto;
+      const result = await adminService.updateNutritionistFull(paramsParsed.data.id, payload);
+      ok(res, result, 'Nutricionista actualizada correctamente');
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const paramsParsed = AdminUserIdParamDto.safeParse(req.params);

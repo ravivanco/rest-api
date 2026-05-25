@@ -8,7 +8,6 @@ import {
   CreateNutritionistDto,
   UpdateAdminUserDto,
   UpdateAdminUserStatusDto,
-  UpdateNutritionistInfoDto,
 } from '../dto/admin.dto';
 
 export const adminRouter = Router();
@@ -179,7 +178,7 @@ adminRouter.get('/nutritionists/:id', adminController.getNutritionistDetail);
  * @swagger
  * /admin/nutritionists/{id}:
  *   patch:
- *     summary: Editar datos permitidos de una nutricionista
+ *     summary: Editar datos completos de una nutricionista
  *     tags: [Admin]
  *     parameters:
  *       - in: path
@@ -198,6 +197,9 @@ adminRouter.get('/nutritionists/:id', adminController.getNutritionistDetail);
  *                 type: string
  *               apellidos:
  *                 type: string
+ *               correo_institucional:
+ *                 type: string
+ *                 format: email
  *               fecha_nacimiento:
  *                 type: string
  *                 format: date
@@ -207,6 +209,11 @@ adminRouter.get('/nutritionists/:id', adminController.getNutritionistDetail);
  *               perfil_nutricionista:
  *                 type: object
  *                 properties:
+ *                   numero_registro_profesional:
+ *                     type: string
+ *                   especialidad:
+ *                     type: string
+ *                     nullable: true
  *                   telefono_contacto:
  *                     type: string
  *                     nullable: true
@@ -224,8 +231,8 @@ adminRouter.get('/nutritionists/:id', adminController.getNutritionistDetail);
  */
 adminRouter.patch(
   '/nutritionists/:id',
-  validate(UpdateNutritionistInfoDto),
-  adminController.updateNutritionistInfo,
+  validate(UpdateAdminUserDto),
+  adminController.updateNutritionistFull,
 );
 
 /**

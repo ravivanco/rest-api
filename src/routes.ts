@@ -26,6 +26,7 @@ import { sugerenciasRouter } from './modules/sugerencias/routes/sugerencias.rout
 import { tiemposComidaRouter } from './modules/tiempos-comida/routes/tiempos-comida.routes';
 import { aptitudesClinicasRouter } from './modules/aptitudes-clinicas/routes/aptitudes-clinicas.routes';
 import { imageCalorieAnalyzerRouter } from './modules/image-calorie-analyzer/routes/image-calorie-analyzer.routes';
+import { nutritionistProfileRouter } from './modules/nutritionist-profile/routes/nutritionist-profile.routes';
 
 const router = Router();
 
@@ -84,6 +85,7 @@ router.use('/sugerencias', sugerenciasRouter);
 router.use('/tiempos-comida', tiemposComidaRouter);
 router.use('/aptitudes-clinicas', aptitudesClinicasRouter);
 router.use('/image-calorie-analyzer', imageCalorieAnalyzerRouter);
+router.use('/nutritionist-profile', nutritionistProfileRouter);
 
 export { router };
 // import { calorieControlRouter }      from './modules/calorie-control/routes/calorie-control.routes';
