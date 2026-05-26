@@ -1326,6 +1326,7 @@ export const recipeGeneratorService = {
     await assertTiempoComidaExiste(data.id_tiempo_comida);
 
     if (!data.forzar_nuevo) {
+      console.log(`[generateGenericRecipe] forzar_nuevo=${data.forzar_nuevo}, tipo=${typeof data.forzar_nuevo}`);
       const cachedPlato = await findCachedPlatoGeneric(
         data.id_tiempo_comida,
         data.calorias_objetivo,

@@ -64,6 +64,8 @@ export const GenerateGenericSchema = z.object({
         .positive('El id_aptitud debe ser positivo'),
     )
     .optional(),
+
+  forzar_nuevo: z.boolean().optional(),
 });
 
 export type GenerateRecipeInput = z.infer<typeof GenerateRecipeSchema>;
