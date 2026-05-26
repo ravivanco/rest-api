@@ -187,6 +187,58 @@ const mapearNombreTiempo = (nombre: string): TiempoComidaNombre => {
   return mapa[normalized] ?? 'almuerzo';
 };
 
+const buscarRecetaSimilar = async (
+  ingredientesResueltos: IngredienteResuelto[],
+  idTiempoComida: number,
+  caloriasObjetivo: number,
+): Promise<number | null> => {
+  const tolerancia = 100;
+
+  const candidatos = await pool.query<{ id_plato: number }>(
+    `SELECT id_plato FROM platos
+     WHERE id_tiempo_comida = $1
+       AND generado_por_ia = true
+       AND activo = true
+       AND calorias_totales BETWEEN $2 AND $3`,
+    [idTiempoComida, caloriasObjetivo - tolerancia, caloriasObjetivo + tolerancia],
+  );
+
+  if (candidatos.rows.length === 0) return null;
+
+  const idsNuevos = new Set(
+    ingredientesResueltos
+      .map(i => i.id_alimento_detalle)
+      .filter((id): id is number => typeof id === 'number'),
+  );
+
+  for (const { id_plato } of candidatos.rows) {
+    const ingsResult = await pool.query<{ id_alimento_detalle: number }>(
+      `SELECT id_alimento_detalle FROM plato_ingredientes
+       WHERE id_plato = $1 AND id_alimento_detalle IS NOT NULL`,
+      [id_plato],
+    );
+
+    const idsExistentes = new Set(
+      ingsResult.rows.map(r => r.id_alimento_detalle),
+    );
+
+    const coincidencias = [...idsNuevos]
+      .filter(id => idsExistentes.has(id)).length;
+    const total = Math.max(idsNuevos.size, idsExistentes.size);
+    const similitud = total > 0 ? coincidencias / total : 0;
+
+    if (similitud >= 0.8) {
+      console.log(
+        `[recipe-generator] Receta similar: id=${id_plato},`,
+        `similitud=${Math.round(similitud * 100)}%`,
+      );
+      return id_plato;
+    }
+  }
+
+  return null;
+};
+
 const resolverNombreUnico = async (nombre: string): Promise<string> => {
   const existeResult = await pool.query<{ count: string }>(
     'SELECT COUNT(*)::text AS count FROM platos WHERE nombre = $1',
@@ -572,12 +624,27 @@ const buildPrompt = (params: {
   const condiciones = params.condiciones.length > 0 ? params.condiciones.join(', ') : 'ninguna';
   const alergias = perfil.alergias_intolerancias?.trim() || 'ninguna';
   const restricciones = perfil.restricciones_alimenticias?.trim() || 'ninguna';
-  const preferidos = params.alimentosPreferidos.length > 0
-    ? params.alimentosPreferidos.join(', ')
-    : 'ninguno';
-  const restringidos = params.alimentosRestringidos.length > 0
-    ? params.alimentosRestringidos.join(', ')
-    : 'ninguno';
+  const seccionPreferencias = params.alimentosPreferidos.length > 0
+    ? [
+      '',
+      'PREFERENCIAS ALIMENTICIAS DEL PACIENTE — ALTA PRIORIDAD:',
+      'El paciente ha indicado que le gustan estos alimentos:',
+      params.alimentosPreferidos.map(a => `- ${a}`).join('\n'),
+      '',
+      'INSTRUCCION OBLIGATORIA: Debes incluir AL MENOS UNO de estos',
+      'alimentos preferidos como ingrediente principal de la receta.',
+      'Si el alimento preferido no es adecuado para este tiempo de comida,',
+      'incluye el siguiente de la lista que si lo sea.',
+    ].join('\n')
+    : '';
+
+  const seccionRestringidos = params.alimentosRestringidos.length > 0
+    ? [
+      '',
+      'ALIMENTOS PROHIBIDOS — NO INCLUIR BAJO NINGUNA CIRCUNSTANCIA:',
+      params.alimentosRestringidos.map(a => `- ${a}`).join('\n'),
+    ].join('\n')
+    : '';
 
   const macros = {
     carbohidratos: perfil.distribucion_carbohidratos_pct,
@@ -608,8 +675,6 @@ const buildPrompt = (params: {
     `- Condiciones medicas: ${condiciones}`,
     `- Alergias/intolerancias: ${alergias}`,
     `- Restricciones alimenticias: ${restricciones}`,
-    `- Alimentos restringidos: ${restringidos}`,
-    `- Alimentos preferidos: ${preferidos}`,
     `- Peso: ${perfil.peso_kg} kg`,
     `- IMC: ${perfil.imc}`,
     '',
@@ -628,7 +693,6 @@ const buildPrompt = (params: {
     'Instrucciones:',
     `- ${reglasMedicas}`,
     '- No usar ingredientes restringidos ni alergenos reportados.',
-    '- Preferir ingredientes favoritos cuando sea posible.',
     'REGLAS DE CANTIDADES - OBLIGATORIAS:',
     '- cantidad_g SIEMPRE debe ser un numero entero en gramos.',
     '- NUNCA uses decimales, fracciones, tazas, cucharadas u otras unidades.',
@@ -641,6 +705,9 @@ const buildPrompt = (params: {
     '  * media taza = la mitad de la taza correspondiente',
     '- Cantidades minimas: 5g. Maximas: 500g por ingrediente.',
     '- USA SOLO nombres de ingredientes que aparezcan en el CATALOGO.',
+    '',
+    ...(seccionPreferencias ? [seccionPreferencias] : []),
+    ...(seccionRestringidos ? [seccionRestringidos] : []),
     '',
     'TIPO DE PLATO ESPERADO SEGUN TIEMPO DE COMIDA:',
     '- desayuno: avena, huevos revueltos/cocidos, tostadas, batido,',
@@ -1143,6 +1210,55 @@ export const recipeGeneratorService = {
     try {
       await client.query('BEGIN');
 
+      // Verificar si existe una receta suficientemente similar
+      // SOLO cuando no hay id_dia_plan o cuando se requiere nueva receta
+      const plataSimilarId = await buscarRecetaSimilar(
+        ingredientesResueltos,
+        data.id_tiempo_comida,
+        caloriasTotales,
+      );
+
+      if (plataSimilarId) {
+        // Reutilizar receta existente sin insertar nada nuevo en platos
+        let idMenuDiario: number | null = null;
+
+        if (data.id_dia_plan) {
+          const menuResult = await client.query<{ id_menu_diario: number }>(
+            INSERT_MENU_DIARIO,
+            [data.id_dia_plan, data.id_tiempo_comida,
+              plataSimilarId, caloriasTotales],
+          );
+          idMenuDiario = menuResult.rows[0].id_menu_diario;
+        }
+
+        await client.query('COMMIT');
+
+        const platoExistente = await pool.query<{
+          id_plato: number; nombre: string;
+          descripcion: string | null;
+          calorias_totales: number;
+          tiempo_preparacion_min: number | null;
+        }>(
+          `SELECT id_plato, nombre, descripcion,
+            calorias_totales, tiempo_preparacion_min
+           FROM platos WHERE id_plato = $1`,
+          [plataSimilarId],
+        );
+
+        return {
+          id_plato: plataSimilarId,
+          nombre: platoExistente.rows[0].nombre,
+          descripcion: platoExistente.rows[0].descripcion ?? null,
+          calorias_totales: caloriasTotales,
+          tiempo_preparacion_min:
+            platoExistente.rows[0].tiempo_preparacion_min ?? null,
+          ingredientes: ingredientesConCalorias,
+          guardado_en_menu: Boolean(data.id_dia_plan),
+          id_menu_diario: idMenuDiario,
+          uso_gpt: true,
+        };
+      }
+
       const nombreFinal = await resolverNombreUnico(gptRecipe.nombre);
 
       const platoResult = await client.query<{ id_plato: number }>(
@@ -1209,13 +1325,16 @@ export const recipeGeneratorService = {
 
     await assertTiempoComidaExiste(data.id_tiempo_comida);
 
-    const cachedPlato = await findCachedPlatoGeneric(
-      data.id_tiempo_comida,
-      data.calorias_objetivo,
-    );
+    if (!data.forzar_nuevo) {
+      const cachedPlato = await findCachedPlatoGeneric(
+        data.id_tiempo_comida,
+        data.calorias_objetivo,
+      );
 
-    if (cachedPlato) {
-      return cachedPlato;
+      if (cachedPlato) {
+        console.log(`[generateGenericRecipe] Cache hit: ${cachedPlato.nombre}`);
+        return cachedPlato;
+      }
     }
 
     const aptitudIds = data.aptitudes?.filter(id => Number.isFinite(id)) ?? [];

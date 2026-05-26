@@ -21,6 +21,7 @@ export interface GenerateGenericDto {
   calorias_objetivo: number;
   restricciones?: string[];
   aptitudes?: number[];
+  forzar_nuevo?: boolean;
 }
 
 export interface RecipeGptIngredient {
