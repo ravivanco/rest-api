@@ -495,9 +495,38 @@ export const dishesRepository = {
     planesAfectados: number;
   }> {
     const client = await pool.connect();
+    const placeholderNombre = 'Plato eliminado';
 
     try {
       await client.query('BEGIN');
+
+      const placeholderResult = await client.query<{ id_plato: number }>(
+        `SELECT id_plato FROM platos
+         WHERE LOWER(nombre) = LOWER($1)
+         LIMIT 1`,
+        [placeholderNombre],
+      );
+
+      let placeholderId = placeholderResult.rows[0]?.id_plato;
+
+      if (!placeholderId) {
+        const insertPlaceholderResult = await client.query<{ id_plato: number }>(
+          `INSERT INTO platos
+            (nombre, descripcion, modo_preparacion, calorias_totales, tiempo_preparacion_min, activo)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING id_plato`,
+          [
+            placeholderNombre,
+            'Plato eliminado por el sistema',
+            'Plato eliminado',
+            0,
+            null,
+            false,
+          ],
+        );
+
+        placeholderId = insertPlaceholderResult.rows[0].id_plato;
+      }
 
       const planesResult = await client.query<{ total: string }>(
         `SELECT COUNT(DISTINCT pn.id_plan) AS total
@@ -511,11 +540,11 @@ export const dishesRepository = {
 
       const updateMenusResult = await client.query(
         `UPDATE menus_diarios
-         SET id_plato = NULL,
+         SET id_plato = $2,
              calorias_aportadas = 0,
              updated_at = NOW()
          WHERE id_plato = $1`,
-        [id],
+        [id, placeholderId],
       );
 
       await client.query(

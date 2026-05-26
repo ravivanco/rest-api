@@ -134,8 +134,12 @@ export const dishesService = {
     planes_afectados: number;
     accion: 'desvinculado_y_eliminado';
   }> {
+    const placeholderNombre = 'Plato eliminado';
     const dish = await dishesRepository.findById(id);
     if (!dish) throw new NotFoundError('Plato');
+    if (dish.nombre.trim().toLowerCase() === placeholderNombre.toLowerCase()) {
+      throw new ConflictError('No se puede eliminar el plato placeholder');
+    }
 
     const result = await dishesRepository.forceDelete(id);
     if (!result.deleted) throw new NotFoundError('Plato');
