@@ -74,4 +74,11 @@ export const dishesController = {
     } catch (error) { next(error); }
   },
 
+  async forceRemove(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await dishesService.forceRemove(parseInt(String(req.params.id), 10));
+      ok(res, result);
+    } catch (error) { next(error); }
+  },
+
 };

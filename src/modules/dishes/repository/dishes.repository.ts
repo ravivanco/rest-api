@@ -489,6 +489,66 @@ export const dishesRepository = {
   },
 
 
+  async forceDelete(id: number): Promise<{
+    deleted: boolean;
+    menusAfectados: number;
+    planesAfectados: number;
+  }> {
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const planesResult = await client.query<{ total: string }>(
+        `SELECT COUNT(DISTINCT pn.id_plan) AS total
+         FROM menus_diarios md
+         JOIN dias_plan dp ON dp.id_dia_plan = md.id_dia_plan
+         JOIN planes_semanales ps ON ps.id_semana = dp.id_semana
+         JOIN planes_nutricionales pn ON pn.id_plan = ps.id_plan
+         WHERE md.id_plato = $1`,
+        [id],
+      );
+
+      const updateMenusResult = await client.query(
+        `UPDATE menus_diarios
+         SET id_plato = NULL,
+             calorias_aportadas = 0,
+             updated_at = NOW()
+         WHERE id_plato = $1`,
+        [id],
+      );
+
+      await client.query(
+        `DELETE FROM plato_aptitudes WHERE id_plato = $1`,
+        [id],
+      );
+
+      await client.query(
+        `DELETE FROM plato_ingredientes WHERE id_plato = $1`,
+        [id],
+      );
+
+      const deleteResult = await client.query<{ id_plato: number }>(
+        `DELETE FROM platos WHERE id_plato = $1 RETURNING id_plato`,
+        [id],
+      );
+
+      await client.query('COMMIT');
+
+      return {
+        deleted: (deleteResult.rowCount ?? 0) > 0,
+        menusAfectados: updateMenusResult.rowCount ?? 0,
+        planesAfectados: parseInt(planesResult.rows[0]?.total ?? '0', 10),
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+
   async existsByName(nombre: string, excludeId?: number): Promise<boolean> {
     const result = await pool.query<{ exists: boolean }>(
       `SELECT EXISTS(

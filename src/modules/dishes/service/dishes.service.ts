@@ -127,4 +127,25 @@ export const dishesService = {
     if (!deleted) throw new NotFoundError('Plato');
   },
 
+
+  async forceRemove(id: number): Promise<{
+    id_plato: number;
+    menus_afectados: number;
+    planes_afectados: number;
+    accion: 'desvinculado_y_eliminado';
+  }> {
+    const dish = await dishesRepository.findById(id);
+    if (!dish) throw new NotFoundError('Plato');
+
+    const result = await dishesRepository.forceDelete(id);
+    if (!result.deleted) throw new NotFoundError('Plato');
+
+    return {
+      id_plato: id,
+      menus_afectados: result.menusAfectados,
+      planes_afectados: result.planesAfectados,
+      accion: 'desvinculado_y_eliminado',
+    };
+  },
+
 };

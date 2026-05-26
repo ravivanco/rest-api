@@ -155,6 +155,28 @@ dishesRouter.delete(
 
 /**
  * @swagger
+ * /dishes/{id}/force:
+ *   delete:
+ *     summary: Eliminar un plato forzando desvinculacion de planes
+ *     tags: [Dishes]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Plato desvinculado de menus y eliminado
+ */
+dishesRouter.delete(
+  '/:id/force',
+  authenticate,
+  requireRole('nutricionista', 'administrador'),
+  dishesController.forceRemove,
+);
+
+/**
+ * @swagger
  * /dishes/{id}/ingredients:
  *   post:
  *     summary: Agregar o actualizar ingrediente en el plato
