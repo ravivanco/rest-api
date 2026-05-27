@@ -87,19 +87,19 @@ export const exerciseTrackingRepository = {
   },
 
 
-  /**
-   * Obtiene la fecha del ejercicio diario.
-   */
   async getExerciseDate(ejercicioDiarioId: number): Promise<string | null> {
-    const result = await pool.query<{ fecha: string }>(
+    const result = await pool.query<{ fecha: Date | string }>(
       `SELECT dp.fecha
        FROM   ejercicios_diarios ed
        JOIN   dias_plan          dp ON dp.id_dia_plan = ed.id_dia_plan
        WHERE  ed.id_ejercicio_diario = $1`,
       [ejercicioDiarioId],
     );
-    return result.rows[0]?.fecha ?? null;
+    const dateVal = result.rows[0]?.fecha;
+    if (!dateVal) return null;
+    return dateVal instanceof Date ? dateVal.toISOString().split('T')[0] : String(dateVal).split('T')[0];
   },
+
 
 
   /**

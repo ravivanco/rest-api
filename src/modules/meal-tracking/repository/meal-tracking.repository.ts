@@ -221,7 +221,7 @@ export const mealTrackingRepository = {
    * Obtiene la fecha del menú (fecha del día del plan al que pertenece).
    */
   async getMenuDate(menuId: number): Promise<string | null> {
-    const result = await pool.query<{ fecha: string; id_perfil_plan: number }>(
+    const result = await pool.query<{ fecha: Date | string; id_perfil_plan: number }>(
       `SELECT dp.fecha, pn.id_perfil AS id_perfil_plan
        FROM   menus_diarios        md
        JOIN   dias_plan            dp ON dp.id_dia_plan = md.id_dia_plan
@@ -230,7 +230,9 @@ export const mealTrackingRepository = {
        WHERE  md.id_menu_diario = $1`,
       [menuId],
     );
-    return result.rows[0]?.fecha ?? null;
+    const dateVal = result.rows[0]?.fecha;
+    if (!dateVal) return null;
+    return dateVal instanceof Date ? dateVal.toISOString().split('T')[0] : String(dateVal).split('T')[0];
   },
 
-};
+};
