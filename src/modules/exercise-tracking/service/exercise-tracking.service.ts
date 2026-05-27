@@ -12,7 +12,9 @@ export const exerciseTrackingService = {
    * Aplica RN-03: solo en el día correspondiente.
    */
   async trackExercise(perfilId: number, data: TrackExerciseDto) {
-    let id_ejercicio_diario = data.id_ejercicio_diario;
+    let id_ejercicio_diario = typeof data.id_ejercicio_diario === 'string'
+      ? parseInt(data.id_ejercicio_diario, 10)
+      : data.id_ejercicio_diario;
 
     if (!id_ejercicio_diario) {
       // Resolve id_ejercicio_diario from id_ejercicio and fecha

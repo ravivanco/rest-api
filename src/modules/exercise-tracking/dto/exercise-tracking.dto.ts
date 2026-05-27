@@ -5,9 +5,7 @@ import { z } from 'zod';
  */
 export const TrackExerciseDto = z.object({
   id_ejercicio_diario: z
-    .number({ message: 'El ID del ejercicio diario es requerido' })
-    .int()
-    .positive()
+    .union([z.number(), z.string()], { message: 'El ID del ejercicio diario es requerido' })
     .optional(),
 
   id_ejercicio: z

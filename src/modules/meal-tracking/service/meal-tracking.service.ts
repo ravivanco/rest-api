@@ -18,9 +18,12 @@ export const mealTrackingService = {
    * - Si se desmarca, resta las calorías del control calórico
    */
   async trackMeal(perfilId: number, data: TrackMealDto) {
+    const idMenuDiario = typeof data.id_menu_diario === 'string'
+      ? parseInt(data.id_menu_diario, 10)
+      : data.id_menu_diario;
 
     // 1. Obtener la fecha del menú para validar RN-03
-    const fechaMenu = await mealTrackingRepository.getMenuDate(data.id_menu_diario);
+    const fechaMenu = await mealTrackingRepository.getMenuDate(idMenuDiario);
 
     if (!fechaMenu) {
       throw new NotFoundError('Menú diario');
@@ -37,7 +40,7 @@ export const mealTrackingService = {
        JOIN   planes_semanales     ps ON ps.id_semana   = dp.id_semana
        JOIN   planes_nutricionales pn ON pn.id_plan     = ps.id_plan
        WHERE  md.id_menu_diario = $1`,
-      [data.id_menu_diario],
+      [idMenuDiario],
     );
 
     if (!menuCheck.rows[0] || menuCheck.rows[0].id_perfil !== perfilId) {
@@ -46,13 +49,13 @@ export const mealTrackingService = {
 
     // 4. Estado anterior del seguimiento (para saber si ya estaba marcado)
     const anterior = await mealTrackingRepository.findByMenuAndPerfil(
-      data.id_menu_diario, perfilId
+      idMenuDiario, perfilId
     );
     const estabaRealizado = anterior?.realizado ?? false;
 
     // 5. Guardar el seguimiento
     const seguimiento = await mealTrackingRepository.upsert({
-      id_menu_diario: data.id_menu_diario,
+      id_menu_diario: idMenuDiario,
       id_perfil:      perfilId,
       realizado:      data.realizado,
       hora_registro:  data.hora_registro,
