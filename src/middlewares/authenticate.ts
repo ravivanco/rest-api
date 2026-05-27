@@ -77,3 +77,50 @@ export const authenticate = (
     next(error);
   }
 };
+
+export const optionalAuthenticate = (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): void => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return next();
+    }
+
+    let token = authHeader.trim();
+    if (/^bearer\s+/i.test(token)) {
+      token = token.replace(/^bearer\s+/i, '').trim();
+    }
+
+    if (/^bearer\s+/i.test(token)) {
+      token = token.replace(/^bearer\s+/i, '').trim();
+    }
+
+    if (!token) {
+      return next();
+    }
+
+    const payload = jwt.verify(token, process.env.JWT_SECRET as string) as unknown as {
+      sub:       number;
+      email:     string;
+      role:      Role;
+      id_perfil: number | null;
+      estado:    string;
+    };
+
+    if (payload.estado === 'activo') {
+      req.user = {
+        id:        payload.sub,
+        email:     payload.email,
+        role:      payload.role,
+        id_perfil: payload.id_perfil,
+        estado:    payload.estado,
+      };
+    }
+    next();
+  } catch {
+    next();
+  }
+};

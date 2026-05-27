@@ -41,11 +41,22 @@ export const foodsService = {
 
 
   async createCustom(data: any & { id_perfil: number }) {
-    // Verificar nombre único
-    const exists = await foodsRepository.existsByName(data.nombre);
-    if (exists) throw new ConflictError(`El alimento '${data.nombre}' ya existe`);
+    // Verificar si ya existe por nombre
+    const existing = await foodsRepository.findByName(data.nombre);
+    if (existing) {
+      return existing;
+    }
 
-    return foodsRepository.create(data);
+    return foodsRepository.create({
+      nombre: data.nombre,
+      categoria: data.categoria,
+      calorias_por_100g: 0,
+      carbohidratos_g: 0,
+      proteinas_g: 0,
+      grasas_g: 0,
+      activo: true,
+      id_perfil: data.id_perfil,
+    });
   },
 
 

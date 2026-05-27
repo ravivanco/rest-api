@@ -1,6 +1,6 @@
 import { Router }          from 'express';
 import { foodsController } from '../controller/foods.controller';
-import { authenticate }    from '@middlewares/authenticate';
+import { authenticate, optionalAuthenticate } from '@middlewares/authenticate';
 import { requireRole }     from '@middlewares/authorize';
 import { validate }        from '@middlewares/validate';
 import { CreateFoodDto, UpdateFoodDto, CreateCustomFoodDto } from '../dto/foods.dto';
@@ -39,7 +39,7 @@ export const foodsRouter = Router();
  *       200:
  *         description: Lista de alimentos paginada
  */
-foodsRouter.get('/',    foodsController.list);
+foodsRouter.get('/', optionalAuthenticate, foodsController.list);
 
 /**
  * @swagger

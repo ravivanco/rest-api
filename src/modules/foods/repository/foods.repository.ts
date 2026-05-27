@@ -174,11 +174,22 @@ export const foodsRepository = {
   },
 
 
+  async findByName(nombre: string): Promise<AlimentoRow | null> {
+    const result = await pool.query<AlimentoRow>(
+      `SELECT * FROM alimentos
+       WHERE  BTRIM(LOWER(nombre)) = BTRIM(LOWER($1))
+       LIMIT  1`,
+      [nombre],
+    );
+    return result.rows[0] ?? null;
+  },
+
+
   async existsByName(nombre: string, excludeId?: number): Promise<boolean> {
     const result = await pool.query<{ exists: boolean }>(
       `SELECT EXISTS(
          SELECT 1 FROM alimentos
-         WHERE  LOWER(nombre) = LOWER($1)
+         WHERE  BTRIM(LOWER(nombre)) = BTRIM(LOWER($1))
            AND  ($2::int IS NULL OR id_alimento != $2)
        ) as exists`,
       [nombre, excludeId ?? null],
