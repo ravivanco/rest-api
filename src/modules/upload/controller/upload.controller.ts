@@ -189,8 +189,9 @@ export const uploadController = {
       const limit = Math.min(parseInt(String(req.query.limit || '50'), 10), 100);
       const nextCursor = req.query.next_cursor as string | undefined;
 
-      const result = await cloudinary.api.resources({
+      const result = await (cloudinary as any).api.resources({
         type: 'upload',
+
         prefix: prefix,
         max_results: limit,
         next_cursor: nextCursor,
