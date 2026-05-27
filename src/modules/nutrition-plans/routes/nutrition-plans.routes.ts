@@ -266,9 +266,10 @@ nutritionPlansRouter.patch(
 nutritionPlansRouter.get(
   '/:id',
   authenticate,
-  requireRole('nutricionista', 'administrador'),
+  requireRole('paciente', 'nutricionista', 'administrador'),
   nutritionPlansController.getById,
 );
+
 
 // ── Semanas ───────────────────────────────────────────────────────────────────
 
@@ -342,9 +343,10 @@ nutritionPlansRouter.post(
 nutritionPlansRouter.get(
   '/:planId/weeks',
   authenticate,
-  requireRole('nutricionista', 'administrador'),
+  requireRole('paciente', 'nutricionista', 'administrador'),
   nutritionPlansController.getWeeks,
 );
+
 
 // ── Menús y ejercicios por día ─────────────────────────────────────────────────
 

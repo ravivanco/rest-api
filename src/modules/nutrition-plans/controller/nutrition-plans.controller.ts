@@ -51,10 +51,18 @@ export const nutritionPlansController = {
    */
   async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const plan = await nutritionPlansService.getPlanById(parseInt(String(req.params.id), 10));
+      const planId = parseInt(String(req.params.id), 10);
+      const plan   = await nutritionPlansService.getPlanById(planId);
+
+      // Seguridad: Paciente solo puede ver su propio plan
+      if (req.user!.role === 'paciente' && plan.id_perfil !== req.user!.id_perfil) {
+        throw new ForbiddenError('Acceso denegado. Este plan no te pertenece.');
+      }
+
       ok(res, plan);
     } catch (error) { next(error); }
   },
+
 
 
   /**
@@ -150,10 +158,21 @@ export const nutritionPlansController = {
    */
   async getWeeks(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const weeks = await nutritionPlansService.getWeeksByPlan(parseInt(String(req.params.planId), 10));
+      const planId = parseInt(String(req.params.planId), 10);
+
+      // Seguridad: Paciente solo puede ver las semanas de su propio plan
+      if (req.user!.role === 'paciente') {
+        const plan = await nutritionPlansService.getPlanById(planId);
+        if (plan.id_perfil !== req.user!.id_perfil) {
+          throw new ForbiddenError('Acceso denegado. Este plan no te pertenece.');
+        }
+      }
+
+      const weeks = await nutritionPlansService.getWeeksByPlan(planId);
       ok(res, weeks);
     } catch (error) { next(error); }
   },
+
 
 
   /**
