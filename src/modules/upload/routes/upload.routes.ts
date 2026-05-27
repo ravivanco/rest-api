@@ -212,3 +212,56 @@ uploadRouter.delete(
   requireRole('nutricionista', 'administrador'),
   uploadController.deleteImage,
 );
+
+/**
+ * @swagger
+ * /upload/images:
+ *   get:
+ *     summary: Listar imágenes subidas a Cloudinary por categoría
+ *     description: |
+ *       Retorna una lista de imágenes almacenadas en Cloudinary en una categoría determinada.
+ *       Permite paginación a través de cursor.
+ *     tags: [Upload]
+ *     parameters:
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [alimentos, platos, ejercicios, consumo_adicional]
+ *           default: alimentos
+ *         description: Categoría/Carpeta de las imágenes a listar.
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 50
+ *         description: Cantidad máxima de imágenes a retornar.
+ *       - in: query
+ *         name: next_cursor
+ *         schema:
+ *           type: string
+ *         description: Cursor para paginación (devuelto en la respuesta anterior).
+ *     responses:
+ *       200:
+ *         description: Lista de imágenes obtenida correctamente
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 resources:
+ *                   - public_id: "dkfitt/alimentos/apple"
+ *                     url: "https://res.cloudinary.com/demo/image/upload/v1/dkfitt/alimentos/apple.png"
+ *                     format: "png"
+ *                     created_at: "2026-05-24T12:00:00Z"
+ *                     bytes: 45670
+ *                 next_cursor: "d2Vib3NzX2V4YW1wbGVfY3Vyc29y"
+ */
+uploadRouter.get(
+  '/images',
+  authenticate,
+  requireRole('nutricionista', 'administrador'),
+  uploadController.listImages,
+);

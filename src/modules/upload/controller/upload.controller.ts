@@ -169,4 +169,44 @@ export const uploadController = {
     } catch (error) { next(error); }
   },
 
-};
+  /**
+   * GET /api/upload/images
+   * Obtiene la lista de imágenes subidas a Cloudinary por categoría/carpeta.
+   * Solo nutricionistas y administradores.
+   */
+  async listImages(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const folderType = String(req.query.type || 'alimentos'); // alimentos, platos, ejercicios, consumo_adicional
+      let prefix = 'dkfitt/alimentos';
+      if (folderType === 'platos') {
+        prefix = 'dkfitt/platos';
+      } else if (folderType === 'ejercicios') {
+        prefix = 'dkfitt/ejercicios';
+      } else if (folderType === 'consumo_adicional') {
+        prefix = 'dkfitt/consumo_adicional';
+      }
+
+      const limit = Math.min(parseInt(String(req.query.limit || '50'), 10), 100);
+      const nextCursor = req.query.next_cursor as string | undefined;
+
+      const result = await cloudinary.api.resources({
+        type: 'upload',
+        prefix: prefix,
+        max_results: limit,
+        next_cursor: nextCursor,
+      });
+
+      ok(res, {
+        resources: (result.resources || []).map((r: any) => ({
+          public_id: r.public_id,
+          url: r.secure_url || r.url,
+          format: r.format,
+          created_at: r.created_at,
+          bytes: r.bytes,
+        })),
+        next_cursor: result.next_cursor || null,
+      });
+    } catch (error) { next(error); }
+  },
+
+};
