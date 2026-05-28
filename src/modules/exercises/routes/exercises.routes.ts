@@ -1,5 +1,6 @@
 import { Router }              from 'express';
 import { exercisesController } from '../controller/exercises.controller';
+import { exerciseRecommendationsController } from '../controller/exercise-recommendations.controller';
 import { authenticate }        from '@middlewares/authenticate';
 import { requireRole }         from '@middlewares/authorize';
 import { validate }            from '@middlewares/validate';
@@ -13,6 +14,32 @@ export const exercisesRouter = Router();
  *   name: Exercises
  *   description: Catálogo de ejercicios físicos con parámetros de prescripción
  */
+
+/**
+ * @swagger
+ * /exercises/recommendations:
+ *   get:
+ *     summary: Obtener recomendaciones de ejercicio personalizadas para compensar calorías
+ *     description: Calcula los ejercicios recomendados para compensar un exceso calórico, adaptado a los intereses y condiciones del paciente.
+ *     tags: [Exercises]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: calories
+ *         required: true
+ *         schema: { type: integer }
+ *         description: Cantidad de calorías a compensar
+ *     responses:
+ *       200:
+ *         description: Recomendaciones generadas con éxito
+ */
+exercisesRouter.get(
+  '/recommendations',
+  authenticate,
+  requireRole('paciente'),
+  exerciseRecommendationsController.getRecommendations,
+);
 
 /**
  * @swagger
