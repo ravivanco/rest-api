@@ -54,7 +54,6 @@ export const foodsService = {
       carbohidratos_g: 0,
       proteinas_g: 0,
       grasas_g: 0,
-      activo: true,
       id_perfil: data.id_perfil,
     });
   },
