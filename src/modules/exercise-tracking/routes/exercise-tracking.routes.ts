@@ -60,7 +60,28 @@ exerciseTrackingRouter.post(
   validate(TrackExerciseDto),
   exerciseTrackingController.trackExercise,
 );
-
+/**
+ * @swagger
+ * /exercise-tracking/patient/{id}:
+ *   get:
+ *     summary: Historial de ejercicios de un paciente
+ *     description: La nutricionista o administrador consulta el cumplimiento físico de un paciente por fecha.
+ *     tags: [Exercise Tracking]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *         description: id_perfil del paciente
+ *       - in: query
+ *         name: fecha
+ *         schema: { type: string }
+ *         example: "2026-05-29"
+ *         description: Fecha a consultar (YYYY-MM-DD). Default hoy.
+ *     responses:
+ *       200:
+ *         description: Historial de ejercicios de la fecha indicada
+ */
 exerciseTrackingRouter.get(
   '/patient/:id',
   authenticate,
