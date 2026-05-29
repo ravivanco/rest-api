@@ -29,3 +29,15 @@ export const assertIsToday = (fechaAVerificar: string): void => {
  */
 export const isToday = (fecha: string): boolean =>
   fecha === getTodayServer();
+
+/**
+ * Normaliza cualquier valor de fecha (Date o String) al formato YYYY-MM-DD.
+ */
+export const formatDate = (val: any): string => {
+  if (!val) return '';
+  if (val instanceof Date) {
+    // Evitar desfase de zona horaria usando getUTCFullYear/Month/Date o toISOString
+    return val.toISOString().split('T')[0];
+  }
+  return String(val).split('T')[0];
+};

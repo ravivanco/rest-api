@@ -2,7 +2,7 @@ import { mealTrackingRepository }    from '../repository/meal-tracking.repositor
 import { calorieControlRepository }  from '../../calorie-control/repository/calorie-control.repository';
 import { nutritionPlansRepository }  from '../../nutrition-plans/repository/nutrition-plans.repository';
 import { TrackMealDto }              from '../dto/meal-tracking.dto';
-import { assertIsToday }             from '@utils/date-validator';
+import { assertIsToday, formatDate } from '@utils/date-validator';
 import { NotFoundError, ForbiddenError } from '@errors/AppError';
 import { pool } from '@database/pool';
 
@@ -132,6 +132,15 @@ export const mealTrackingService = {
         dias: [],
       };
     }
+
+    // Normalizar todas las fechas en activePlan
+    activePlan.semanas.forEach(s => {
+      s.semana.fecha_inicio_semana = formatDate(s.semana.fecha_inicio_semana);
+      s.semana.fecha_fin_semana = formatDate(s.semana.fecha_fin_semana);
+      s.dias.forEach(d => {
+        d.dia.fecha = formatDate(d.dia.fecha);
+      });
+    });
 
     const trackingRows = await pool.query<{
       id_menu_diario: number;

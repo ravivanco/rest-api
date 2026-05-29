@@ -14,6 +14,7 @@ import {
   ForbiddenError,
 } from '@errors/AppError';
 import { ensureDailyExercisesExist, limitExercisesTo60Minutes } from '@utils/exercise-limiter';
+import { formatDate } from '@utils/date-validator';
 
 /** 
  * Días válidos para los planes nutricionales.
@@ -203,6 +204,15 @@ export const nutritionPlansService = {
         plan: null,
       };
     }
+
+    // Normalizar todas las fechas en resultado
+    resultado.semanas.forEach(s => {
+      s.semana.fecha_inicio_semana = formatDate(s.semana.fecha_inicio_semana);
+      s.semana.fecha_fin_semana = formatDate(s.semana.fecha_fin_semana);
+      s.dias.forEach(d => {
+        d.dia.fecha = formatDate(d.dia.fecha);
+      });
+    });
 
     // Calcular semana actual del plan
     const hoy = new Date().toISOString().split('T')[0];
