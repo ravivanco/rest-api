@@ -83,7 +83,7 @@ calorieControlRouter.get(
 calorieControlRouter.get(
   '/me/history',
   authenticate,
-  requireRole('paciente', 'nutricionista'),
+  requireRole('paciente'),
   calorieControlController.getMyHistory,
 );
 
@@ -102,8 +102,45 @@ calorieControlRouter.get(
 calorieControlRouter.get(
   '/me/weekly',
   authenticate,
-  requireRole('paciente', 'nutricionista'),
+  requireRole('paciente'),
   calorieControlController.getWeeklyProgress,
+);
+
+/**
+ * @swagger
+ * /calorie-control/patient/{id}/history:
+ *   get:
+ *     summary: Historial de balance calórico de un paciente (nutricionista)
+ *     description: Serie temporal del balance calórico diario para gráficos.
+ *     tags: [Calorie Control]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *         description: id_perfil del paciente
+ *       - in: query
+ *         name: desde
+ *         schema: { type: string, format: date }
+ *       - in: query
+ *         name: hasta
+ *         schema: { type: string, format: date }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 30 }
+ *     responses:
+ *       200:
+ *         description: Historial paginado de balance calórico
+ */
+
+calorieControlRouter.get(
+  '/patient/:id/history',
+  authenticate,
+  requireRole('nutricionista'),
+  calorieControlController.getPatientHistory,
 );
 
 /**
