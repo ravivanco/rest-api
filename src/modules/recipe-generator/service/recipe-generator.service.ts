@@ -734,6 +734,23 @@ const buildPrompt = (params: {
     'No es obligatorio generar siempre platos ecuatorianos —',
     'alterna entre cocina ecuatoriana e internacional para dar variedad.',
     '',
+    'REGLAS DE COMBINACION DE SABORES — CRITICAS:',
+    '- Los ingredientes deben combinarse de forma NATURAL y APETITOSA.',
+    '- COMBINACIONES PROHIBIDAS (nunca juntar estos):',
+    '  * frutas dulces (sandia, melon, fresa, mango) con proteinas saladas (atun, pollo, queso)',
+    '  * avena o cereales con proteinas de carne o pescado',
+    '  * pepino o vegetales crudos con frutas dulces en el mismo plato',
+    '  * lacteos con frutas acidas en el mismo plato (excepto yogur)',
+    '- COMBINACIONES VALIDAS por tiempo de comida:',
+    '  * desayuno dulce: avena/granola + fruta + yogur/leche, o pancakes + fruta',
+    '  * desayuno salado: huevo + pan/tortilla + aguacate, o revuelto de verduras',
+    '  * snack (media manana/tarde): UNA fruta sola, o yogur + fruta, o nueces solas',
+    '  * almuerzo: proteina (pollo/res/pescado) + carbohidrato (arroz/papa) + vegetal cocido',
+    '  * cena: proteina ligera + ensalada o vegetal salteado',
+    '- PRUEBA DE APETITO: antes de proponer la receta, preguntate si un',
+    '  empleado ecuatoriano comun la comeria con gusto. Si la respuesta',
+    '  es NO, elige otra combinacion.',
+    '',
     'REGLAS DE COHERENCIA DE PLATO - CRITICAS:',
     '1. Cada receta debe ser UN SOLO PLATO coherente, no varios platos mezclados.',
     '2. desayuno dulce (avena, granola, yogur): NO mezclar con huevos fritos ni salados.',
@@ -819,6 +836,23 @@ const buildPromptGenerico = (params: {
     '  yogur con frutas ecuatorianas (mora, taxo, maracuya).',
     'No es obligatorio generar siempre platos ecuatorianos —',
     'alterna entre cocina ecuatoriana e internacional para dar variedad.',
+    '',
+    'REGLAS DE COMBINACION DE SABORES — CRITICAS:',
+    '- Los ingredientes deben combinarse de forma NATURAL y APETITOSA.',
+    '- COMBINACIONES PROHIBIDAS (nunca juntar estos):',
+    '  * frutas dulces (sandia, melon, fresa, mango) con proteinas saladas (atun, pollo, queso)',
+    '  * avena o cereales con proteinas de carne o pescado',
+    '  * pepino o vegetales crudos con frutas dulces en el mismo plato',
+    '  * lacteos con frutas acidas en el mismo plato (excepto yogur)',
+    '- COMBINACIONES VALIDAS por tiempo de comida:',
+    '  * desayuno dulce: avena/granola + fruta + yogur/leche, o pancakes + fruta',
+    '  * desayuno salado: huevo + pan/tortilla + aguacate, o revuelto de verduras',
+    '  * snack (media manana/tarde): UNA fruta sola, o yogur + fruta, o nueces solas',
+    '  * almuerzo: proteina (pollo/res/pescado) + carbohidrato (arroz/papa) + vegetal cocido',
+    '  * cena: proteina ligera + ensalada o vegetal salteado',
+    '- PRUEBA DE APETITO: antes de proponer la receta, preguntate si un',
+    '  empleado ecuatoriano comun la comeria con gusto. Si la respuesta',
+    '  es NO, elige otra combinacion.',
     '',
     'RESTRICCIONES CRITICAS - OBLIGATORIAS:',
     restriccionesTexto,
@@ -1691,6 +1725,10 @@ export const recipeGeneratorService = {
               500,
               'RECIPE_GENERATION_FAILED',
             );
+          }
+
+          if (recipeResult.uso_gpt) {
+            await new Promise(resolve => setTimeout(resolve, 2500));
           }
 
           slotsGenerados++;

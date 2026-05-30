@@ -83,7 +83,7 @@ calorieControlRouter.get(
 calorieControlRouter.get(
   '/me/history',
   authenticate,
-  requireRole('paciente'),
+  requireRole('paciente', 'nutricionista'),
   calorieControlController.getMyHistory,
 );
 
@@ -102,7 +102,7 @@ calorieControlRouter.get(
 calorieControlRouter.get(
   '/me/weekly',
   authenticate,
-  requireRole('paciente'),
+  requireRole('paciente', 'nutricionista'),
   calorieControlController.getWeeklyProgress,
 );
 
