@@ -101,7 +101,7 @@ type ActivityLogColumns = {
   date: string;
 };
 
-let activityLogSchemaCache: Promise<{ tableName: string; columns: ActivityLogColumns }> | null = null;
+let activityLogSchemaCache: Promise<{ schemaName: string; tableName: string; columns: ActivityLogColumns }> | null = null;
 
 const resolveFirstMatchingColumn = (availableColumns: Set<string>, candidates: readonly string[]): string | null => {
   for (const candidate of candidates) {
@@ -113,31 +113,29 @@ const resolveFirstMatchingColumn = (availableColumns: Set<string>, candidates: r
   return null;
 };
 
-const resolveActivityLogSchema = async (): Promise<{ tableName: string; columns: ActivityLogColumns }> => {
+const resolveActivityLogSchema = async (): Promise<{ schemaName: string; tableName: string; columns: ActivityLogColumns }> => {
   if (!activityLogSchemaCache) {
     activityLogSchemaCache = (async () => {
-      const tableResult = await pool.query<{ table_name: string | null }>(`
-        SELECT COALESCE(
-          to_regclass('public.historial_actividad')::text,
-          to_regclass('public.historial_actividades')::text,
-          to_regclass('public.activity_logs')::text,
-          to_regclass('public.activity_log')::text,
-          to_regclass('public.logs_actividad')::text,
-          to_regclass('public.auditoria_actividades')::text
-        ) AS table_name
-      `);
+      const tableResult = await pool.query<{ table_schema: string; table_name: string }>(`
+        SELECT table_schema, table_name
+        FROM information_schema.tables
+        WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+          AND table_name = ANY($1::text[])
+        ORDER BY array_position($1::text[], table_name) ASC, table_schema ASC
+        LIMIT 1
+      `, [ACTIVITY_LOG_TABLE_CANDIDATES]);
 
-      const tableName = tableResult.rows[0]?.table_name;
-      if (!tableName) {
+      const tableRow = tableResult.rows[0];
+      if (!tableRow) {
         throw new Error('No se encontró una tabla de historial de actividad');
       }
 
       const columnResult = await pool.query<{ column_name: string }>(`
         SELECT column_name
         FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND table_name = $1
-      `, [tableName]);
+        WHERE table_schema = $1
+          AND table_name = $2
+      `, [tableRow.table_schema, tableRow.table_name]);
 
       const availableColumns = new Set(columnResult.rows.map((row) => row.column_name));
 
@@ -148,11 +146,12 @@ const resolveActivityLogSchema = async (): Promise<{ tableName: string; columns:
       const date = resolveFirstMatchingColumn(availableColumns, ACTIVITY_LOG_COLUMN_CANDIDATES.date);
 
       if (!id || !userId || !action || !date) {
-        throw new Error(`La tabla ${tableName} no tiene la estructura esperada para historial de actividad`);
+        throw new Error(`La tabla ${tableRow.table_schema}.${tableRow.table_name} no tiene la estructura esperada para historial de actividad`);
       }
 
       return {
-        tableName,
+        schemaName: tableRow.table_schema,
+        tableName: tableRow.table_name,
         columns: {
           id,
           userId,
@@ -539,7 +538,8 @@ export const adminRepository = {
     limit: number;
     offset: number;
   }): Promise<{ items: ActivityLogRow[]; total: number }> {
-    const { tableName, columns } = await resolveActivityLogSchema();
+    const { schemaName, tableName, columns } = await resolveActivityLogSchema();
+    const activityTable = `${schemaName}.${tableName}`;
 
     const conditions: string[] = [];
     const params: unknown[] = [];
@@ -578,7 +578,7 @@ export const adminRepository = {
 
     const totalResult = await pool.query<{ total: string }>(
       `SELECT COUNT(*) AS total
-       FROM ${tableName} a
+       FROM ${activityTable} a
        INNER JOIN usuarios u ON u.id_usuario = a.${columns.userId}
        ${where}`,
       params,
@@ -592,7 +592,7 @@ export const adminRepository = {
           a.${columns.action} AS accion,
           ${columns.ip === 'NULL' ? 'NULL' : `a.${columns.ip}`} AS ip,
           a.${columns.date} AS fecha
-       FROM ${tableName} a
+         FROM ${activityTable} a
        INNER JOIN usuarios u ON u.id_usuario = a.${columns.userId}
        ${where}
        ORDER BY a.${columns.date} DESC, a.${columns.id} DESC
