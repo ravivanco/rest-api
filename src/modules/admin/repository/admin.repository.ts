@@ -56,6 +56,14 @@ export interface ActivityLogRow {
   fecha: string;
 }
 
+export interface ActivityLogInsertData {
+  id_usuario: number | null;
+  usuario: string;
+  rol: 'paciente' | 'nutricionista' | 'administrador';
+  accion: string;
+  ip?: string | null;
+}
+
 const SORT_FIELD_MAP: Record<'fecha_registro' | 'nombres' | 'rol', string> = {
   fecha_registro: 'u.fecha_registro',
   nombres: 'u.nombres',
@@ -546,14 +554,15 @@ export const adminRepository = {
     let idx = 1;
 
     if (filters.rol) {
-      conditions.push(`u.rol = $${idx}`);
+      conditions.push(`COALESCE(u.rol, a.rol) = $${idx}`);
       params.push(filters.rol);
       idx++;
     }
 
     if (filters.search) {
       conditions.push(`(
-        u.correo_institucional ILIKE $${idx}
+        a.usuario ILIKE $${idx}
+        OR u.correo_institucional ILIKE $${idx}
         OR u.nombres ILIKE $${idx}
         OR u.apellidos ILIKE $${idx}
         OR a.${columns.action} ILIKE $${idx}
@@ -579,7 +588,7 @@ export const adminRepository = {
     const totalResult = await pool.query<{ total: string }>(
       `SELECT COUNT(*) AS total
        FROM ${activityTable} a
-       INNER JOIN usuarios u ON u.id_usuario = a.${columns.userId}
+       LEFT JOIN usuarios u ON u.id_usuario = a.${columns.userId}
        ${where}`,
       params,
     );
@@ -587,13 +596,13 @@ export const adminRepository = {
     const dataResult = await pool.query<ActivityLogRow>(
       `SELECT
           a.${columns.id} AS id_actividad,
-          u.correo_institucional AS usuario,
-          u.rol,
+          COALESCE(u.correo_institucional, a.usuario) AS usuario,
+          COALESCE(u.rol, a.rol) AS rol,
           a.${columns.action} AS accion,
           ${columns.ip === 'NULL' ? 'NULL' : `a.${columns.ip}`} AS ip,
           a.${columns.date} AS fecha
          FROM ${activityTable} a
-       INNER JOIN usuarios u ON u.id_usuario = a.${columns.userId}
+       LEFT JOIN usuarios u ON u.id_usuario = a.${columns.userId}
        ${where}
        ORDER BY a.${columns.date} DESC, a.${columns.id} DESC
        LIMIT $${idx} OFFSET $${idx + 1}`,
@@ -604,6 +613,52 @@ export const adminRepository = {
       items: dataResult.rows,
       total: parseInt(totalResult.rows[0].total, 10),
     };
+  },
+
+  async createActivityLog(data: ActivityLogInsertData): Promise<void> {
+    const { schemaName, tableName, columns } = await resolveActivityLogSchema();
+    const activityTable = `${schemaName}.${tableName}`;
+
+    const idColumn = columns.id;
+    const userIdColumn = columns.userId;
+    const actionColumn = columns.action;
+    const ipColumn = columns.ip === 'NULL' ? null : columns.ip;
+    const dateColumn = columns.date;
+
+    const columnNames = [
+      idColumn,
+      userIdColumn,
+      'usuario',
+      'rol',
+      actionColumn,
+      ...(ipColumn ? [ipColumn] : []),
+      dateColumn,
+    ];
+
+    const values = [
+      data.id_usuario,
+      data.usuario,
+      data.rol,
+      data.accion,
+      ...(ipColumn ? [data.ip ?? null] : []),
+    ];
+
+    const placeholders = [
+      'DEFAULT',
+      '$1',
+      '$2',
+      '$3',
+      '$4',
+      ...(ipColumn ? ['$5'] : []),
+      'DEFAULT',
+    ];
+
+    await pool.query(
+      `INSERT INTO ${activityTable}
+         (${columnNames.join(', ')})
+       VALUES (${placeholders.join(', ')})`,
+      values,
+    );
   },
 
   async updateUsuarioFields(

@@ -41,6 +41,34 @@ const generateTemporaryPassword = (length = 12): string => {
   return seed.join('');
 };
 
+type AuditActor = {
+  id: number;
+  email: string;
+  role: 'paciente' | 'nutricionista' | 'administrador';
+};
+
+type AuditContext = {
+  actor: AuditActor;
+  ip?: string | null;
+  messagePrefix?: string;
+};
+
+const buildFullName = (nombres: string, apellidos: string): string => `${nombres} ${apellidos}`.trim();
+
+const registerActivity = async (context: AuditContext, accion: string): Promise<void> => {
+  try {
+    await adminRepository.createActivityLog({
+      id_usuario: context.actor.id,
+      usuario: context.actor.email,
+      rol: context.actor.role,
+      accion,
+      ip: context.ip ?? null,
+    });
+  } catch (error) {
+    console.warn('No se pudo registrar la actividad administrativa:', error);
+  }
+};
+
 export const adminService = {
   async listActivityLogs(filters: AdminActivityLogsQueryDto) {
     const page = filters.page;
@@ -143,7 +171,7 @@ export const adminService = {
     };
   },
 
-  async updateUser(idUsuario: number, payload: UpdateAdminUserDto) {
+  async updateUser(idUsuario: number, payload: UpdateAdminUserDto, audit?: AuditContext) {
     const existing = await adminRepository.findUserById(idUsuario);
     if (!existing) {
       throw new NotFoundError('Usuario');
@@ -215,10 +243,20 @@ export const adminService = {
       throw new NotFoundError('Usuario');
     }
 
+    if (audit) {
+      const prefix = audit.messagePrefix ?? 'Actualizó datos del usuario';
+      await registerActivity(audit, `${prefix} ${buildFullName(updated.nombres, updated.apellidos)}`);
+    }
+
     return updated;
   },
 
-  async updateUserStatus(adminId: number, idUsuario: number, estado: 'activo' | 'inactivo' | 'suspendido') {
+  async updateUserStatus(
+    adminId: number,
+    idUsuario: number,
+    estado: 'activo' | 'inactivo' | 'suspendido',
+    audit?: AuditContext,
+  ) {
     const existing = await adminRepository.findUserById(idUsuario);
 
     if (!existing) {
@@ -236,10 +274,21 @@ export const adminService = {
       throw new NotFoundError('Usuario');
     }
 
+    if (audit) {
+      const fullName = buildFullName(updated.nombres, updated.apellidos);
+      const prefix =
+        estado === 'activo'
+          ? 'Activó la cuenta del usuario'
+          : estado === 'suspendido'
+            ? 'Suspendió la cuenta del usuario'
+            : 'Desactivó la cuenta del usuario';
+      await registerActivity(audit, `${prefix} ${fullName}`);
+    }
+
     return updated;
   },
 
-  async updateNutritionistFull(idUsuario: number, payload: UpdateAdminUserDto) {
+  async updateNutritionistFull(idUsuario: number, payload: UpdateAdminUserDto, audit?: AuditContext) {
     const existing = await adminRepository.findUserById(idUsuario);
     if (!existing) {
       throw new NotFoundError('Usuario');
@@ -249,7 +298,16 @@ export const adminService = {
       throw new BusinessRuleError('El usuario no es un nutricionista');
     }
 
-    await this.updateUser(idUsuario, payload);
+    await this.updateUser(
+      idUsuario,
+      payload,
+      audit
+        ? {
+          ...audit,
+          messagePrefix: 'Actualizó el perfil profesional del nutricionista',
+        }
+        : undefined,
+    );
     return this.getNutritionistDetail(idUsuario);
   },
 
@@ -283,7 +341,7 @@ export const adminService = {
     };
   },
 
-  async updateNutritionistInfo(idUsuario: number, payload: UpdateNutritionistInfoDto) {
+  async updateNutritionistInfo(idUsuario: number, payload: UpdateNutritionistInfoDto, audit?: AuditContext) {
     const existing = await adminRepository.findUserById(idUsuario);
     if (!existing) {
       throw new NotFoundError('Usuario');
@@ -313,10 +371,19 @@ export const adminService = {
         : undefined,
     });
 
-    return this.getNutritionistDetail(idUsuario);
+    const updated = await this.getNutritionistDetail(idUsuario);
+
+    if (audit) {
+      await registerActivity(
+        audit,
+        `Actualizó el perfil profesional del nutricionista ${buildFullName(updated.nombres, updated.apellidos)}`,
+      );
+    }
+
+    return updated;
   },
 
-  async resetUserPassword(idUsuario: number, providedPassword?: string) {
+  async resetUserPassword(idUsuario: number, providedPassword?: string, audit?: AuditContext) {
     const existing = await adminRepository.findUserById(idUsuario);
 
     if (!existing) {
@@ -330,6 +397,13 @@ export const adminService = {
       id_usuario: idUsuario,
       contrasena_hash: contrasenaHash,
     });
+
+    if (audit) {
+      await registerActivity(
+        audit,
+        `Reseteó la contraseña del usuario ${buildFullName(existing.nombres, existing.apellidos)}`,
+      );
+    }
 
     return {
       id_usuario: idUsuario,

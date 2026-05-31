@@ -66,7 +66,10 @@ export const adminController = {
       }
 
       const payload = req.body as UpdateAdminUserDto;
-      const result = await adminService.updateUser(paramsParsed.data.id, payload);
+      const result = await adminService.updateUser(paramsParsed.data.id, payload, {
+        actor: req.user!,
+        ip: req.ip,
+      });
       ok(res, result, 'Usuario actualizado correctamente');
     } catch (error) {
       next(error);
@@ -82,7 +85,15 @@ export const adminController = {
       }
 
       const payload = req.body as UpdateAdminUserStatusDto;
-      const result = await adminService.updateUserStatus(req.user!.id, paramsParsed.data.id, payload.estado);
+      const result = await adminService.updateUserStatus(
+        req.user!.id,
+        paramsParsed.data.id,
+        payload.estado,
+        {
+          actor: req.user!,
+          ip: req.ip,
+        },
+      );
       ok(res, result, 'Estado de cuenta actualizado correctamente');
     } catch (error) {
       next(error);
@@ -113,7 +124,10 @@ export const adminController = {
       }
 
       const payload = req.body as UpdateNutritionistInfoDto;
-      const result = await adminService.updateNutritionistInfo(paramsParsed.data.id, payload);
+      const result = await adminService.updateNutritionistInfo(paramsParsed.data.id, payload, {
+        actor: req.user!,
+        ip: req.ip,
+      });
       ok(res, result, 'Nutricionista actualizada correctamente');
     } catch (error) {
       next(error);
@@ -129,7 +143,10 @@ export const adminController = {
       }
 
       const payload = req.body as UpdateAdminUserDto;
-      const result = await adminService.updateNutritionistFull(paramsParsed.data.id, payload);
+      const result = await adminService.updateNutritionistFull(paramsParsed.data.id, payload, {
+        actor: req.user!,
+        ip: req.ip,
+      });
       ok(res, result, 'Nutricionista actualizada correctamente');
     } catch (error) {
       next(error);
@@ -148,6 +165,10 @@ export const adminController = {
       const result = await adminService.resetUserPassword(
         paramsParsed.data.id,
         payload.contrasena_temporal,
+        {
+          actor: req.user!,
+          ip: req.ip,
+        },
       );
 
       ok(res, result);
