@@ -23,6 +23,69 @@ adminRouter.use(authenticate, requireRole('administrador'));
 
 /**
  * @swagger
+ * /admin/activity-logs:
+ *   get:
+ *     summary: Historial de actividad del administrador
+ *     description: Lista las acciones realizadas en el panel administrativo con filtros por rol, búsqueda y rango de fechas.
+ *     tags: [Admin]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: rol
+ *         schema:
+ *           type: string
+ *           enum: [administrador, nutricionista, paciente]
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: fecha_desde
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: fecha_hasta
+ *         schema:
+ *           type: string
+ *           format: date
+ *     responses:
+ *       200:
+ *         description: Historial de actividad paginado
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 - id_actividad: 1
+ *                   usuario: admin@dkfitt.com
+ *                   rol: administrador
+ *                   accion: Creó cuenta de nutricionista
+ *                   ip: 192.168.1.100
+ *                   fecha: "2026-03-27T08:30:00.000Z"
+ *               meta:
+ *                 page: 1
+ *                 limit: 20
+ *                 total: 125
+ *                 total_pages: 7
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
+adminRouter.get('/activity-logs', adminController.listActivityLogs);
+
+/**
+ * @swagger
  * /admin/users:
  *   get:
  *     summary: Listar usuarios para panel administrativo

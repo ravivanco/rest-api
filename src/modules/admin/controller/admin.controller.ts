@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
-import { ok, created } from '@utils/response';
+import { ok, created, paginated } from '@utils/response';
 import {
+  AdminActivityLogsQueryDto,
   AdminListUsersQueryDto,
   AdminResetPasswordDto,
   AdminUserIdParamDto,
@@ -12,6 +13,25 @@ import {
 import { adminService } from '../service/admin.service';
 
 export const adminController = {
+  async listActivityLogs(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const parsed = AdminActivityLogsQueryDto.safeParse(req.query);
+      if (!parsed.success) {
+        next(parsed.error);
+        return;
+      }
+
+      const result = await adminService.listActivityLogs(parsed.data);
+      paginated(res, result.items, {
+        page: result.pagination.page,
+        limit: result.pagination.limit,
+        total: result.pagination.total,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async listUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const parsed = AdminListUsersQueryDto.safeParse(req.query);

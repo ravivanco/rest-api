@@ -47,6 +47,15 @@ export interface NutritionistDetailRow {
   telefono_contacto: string | null;
 }
 
+export interface ActivityLogRow {
+  id_actividad: number;
+  usuario: string;
+  rol: 'paciente' | 'nutricionista' | 'administrador';
+  accion: string;
+  ip: string | null;
+  fecha: string;
+}
+
 const SORT_FIELD_MAP: Record<'fecha_registro' | 'nombres' | 'rol', string> = {
   fecha_registro: 'u.fecha_registro',
   nombres: 'u.nombres',
@@ -66,6 +75,97 @@ const buildUserPayload = (row: AdminUserListItem): AdminUserListItem => ({
     }
     : null,
 });
+
+const ACTIVITY_LOG_TABLE_CANDIDATES = [
+  'historial_actividad',
+  'historial_actividades',
+  'activity_logs',
+  'activity_log',
+  'logs_actividad',
+  'auditoria_actividades',
+];
+
+const ACTIVITY_LOG_COLUMN_CANDIDATES = {
+  id: ['id_actividad', 'id_log', 'id_historial_actividad'],
+  userId: ['id_usuario', 'usuario_id', 'id_user'],
+  action: ['accion', 'descripcion', 'evento'],
+  ip: ['ip', 'direccion_ip', 'ip_address'],
+  date: ['fecha', 'created_at', 'fecha_registro', 'fecha_actividad'],
+} as const;
+
+type ActivityLogColumns = {
+  id: string;
+  userId: string;
+  action: string;
+  ip: string;
+  date: string;
+};
+
+let activityLogSchemaCache: Promise<{ tableName: string; columns: ActivityLogColumns }> | null = null;
+
+const resolveFirstMatchingColumn = (availableColumns: Set<string>, candidates: readonly string[]): string | null => {
+  for (const candidate of candidates) {
+    if (availableColumns.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+};
+
+const resolveActivityLogSchema = async (): Promise<{ tableName: string; columns: ActivityLogColumns }> => {
+  if (!activityLogSchemaCache) {
+    activityLogSchemaCache = (async () => {
+      const tableResult = await pool.query<{ table_name: string | null }>(`
+        SELECT COALESCE(
+          to_regclass('public.historial_actividad')::text,
+          to_regclass('public.historial_actividades')::text,
+          to_regclass('public.activity_logs')::text,
+          to_regclass('public.activity_log')::text,
+          to_regclass('public.logs_actividad')::text,
+          to_regclass('public.auditoria_actividades')::text
+        ) AS table_name
+      `);
+
+      const tableName = tableResult.rows[0]?.table_name;
+      if (!tableName) {
+        throw new Error('No se encontró una tabla de historial de actividad');
+      }
+
+      const columnResult = await pool.query<{ column_name: string }>(`
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = $1
+      `, [tableName]);
+
+      const availableColumns = new Set(columnResult.rows.map((row) => row.column_name));
+
+      const id = resolveFirstMatchingColumn(availableColumns, ACTIVITY_LOG_COLUMN_CANDIDATES.id);
+      const userId = resolveFirstMatchingColumn(availableColumns, ACTIVITY_LOG_COLUMN_CANDIDATES.userId);
+      const action = resolveFirstMatchingColumn(availableColumns, ACTIVITY_LOG_COLUMN_CANDIDATES.action);
+      const ip = resolveFirstMatchingColumn(availableColumns, ACTIVITY_LOG_COLUMN_CANDIDATES.ip);
+      const date = resolveFirstMatchingColumn(availableColumns, ACTIVITY_LOG_COLUMN_CANDIDATES.date);
+
+      if (!id || !userId || !action || !date) {
+        throw new Error(`La tabla ${tableName} no tiene la estructura esperada para historial de actividad`);
+      }
+
+      return {
+        tableName,
+        columns: {
+          id,
+          userId,
+          action,
+          ip: ip ?? 'NULL',
+          date,
+        },
+      };
+    })();
+  }
+
+  return activityLogSchemaCache;
+};
 
 export const adminRepository = {
   async listUsers(filters: {
@@ -429,6 +529,81 @@ export const adminRepository = {
     );
 
     return result.rows[0] ?? null;
+  },
+
+  async listActivityLogs(filters: {
+    rol?: 'paciente' | 'nutricionista' | 'administrador';
+    search?: string;
+    fecha_desde?: string;
+    fecha_hasta?: string;
+    limit: number;
+    offset: number;
+  }): Promise<{ items: ActivityLogRow[]; total: number }> {
+    const { tableName, columns } = await resolveActivityLogSchema();
+
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    let idx = 1;
+
+    if (filters.rol) {
+      conditions.push(`u.rol = $${idx}`);
+      params.push(filters.rol);
+      idx++;
+    }
+
+    if (filters.search) {
+      conditions.push(`(
+        u.correo_institucional ILIKE $${idx}
+        OR u.nombres ILIKE $${idx}
+        OR u.apellidos ILIKE $${idx}
+        OR a.${columns.action} ILIKE $${idx}
+      )`);
+      params.push(`%${filters.search}%`);
+      idx++;
+    }
+
+    if (filters.fecha_desde) {
+      conditions.push(`a.${columns.date}::date >= $${idx}::date`);
+      params.push(filters.fecha_desde);
+      idx++;
+    }
+
+    if (filters.fecha_hasta) {
+      conditions.push(`a.${columns.date}::date <= $${idx}::date`);
+      params.push(filters.fecha_hasta);
+      idx++;
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const totalResult = await pool.query<{ total: string }>(
+      `SELECT COUNT(*) AS total
+       FROM ${tableName} a
+       INNER JOIN usuarios u ON u.id_usuario = a.${columns.userId}
+       ${where}`,
+      params,
+    );
+
+    const dataResult = await pool.query<ActivityLogRow>(
+      `SELECT
+          a.${columns.id} AS id_actividad,
+          u.correo_institucional AS usuario,
+          u.rol,
+          a.${columns.action} AS accion,
+          ${columns.ip === 'NULL' ? 'NULL' : `a.${columns.ip}`} AS ip,
+          a.${columns.date} AS fecha
+       FROM ${tableName} a
+       INNER JOIN usuarios u ON u.id_usuario = a.${columns.userId}
+       ${where}
+       ORDER BY a.${columns.date} DESC, a.${columns.id} DESC
+       LIMIT $${idx} OFFSET $${idx + 1}`,
+      [...params, filters.limit, filters.offset],
+    );
+
+    return {
+      items: dataResult.rows,
+      total: parseInt(totalResult.rows[0].total, 10),
+    };
   },
 
   async updateUsuarioFields(

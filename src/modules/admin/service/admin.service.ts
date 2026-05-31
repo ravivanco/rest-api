@@ -8,6 +8,7 @@ import {
 } from '@errors/AppError';
 import { adminRepository } from '../repository/admin.repository';
 import {
+  AdminActivityLogsQueryDto,
   AdminListUsersQueryDto,
   CreateNutritionistDto,
   UpdateAdminUserDto,
@@ -41,6 +42,31 @@ const generateTemporaryPassword = (length = 12): string => {
 };
 
 export const adminService = {
+  async listActivityLogs(filters: AdminActivityLogsQueryDto) {
+    const page = filters.page;
+    const limit = filters.limit;
+    const offset = (page - 1) * limit;
+
+    const { items, total } = await adminRepository.listActivityLogs({
+      rol: filters.rol,
+      search: filters.search,
+      fecha_desde: filters.fecha_desde,
+      fecha_hasta: filters.fecha_hasta,
+      limit,
+      offset,
+    });
+
+    return {
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  },
+
   async listUsers(filters: AdminListUsersQueryDto) {
     const page = filters.page;
     const limit = filters.limit;

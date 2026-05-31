@@ -25,6 +25,23 @@ export const AdminListUsersQueryDto = z.object({
 
 export type AdminListUsersQueryDto = z.infer<typeof AdminListUsersQueryDto>;
 
+export const AdminActivityLogsQueryDto = z.object({
+  rol: z.enum(['administrador', 'nutricionista', 'paciente']).optional(),
+  search: z.string().trim().min(1).max(150).optional(),
+  fecha_desde: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido. Usa YYYY-MM-DD')
+    .optional(),
+  fecha_hasta: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido. Usa YYYY-MM-DD')
+    .optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export type AdminActivityLogsQueryDto = z.infer<typeof AdminActivityLogsQueryDto>;
+
 export const CreateNutritionistDto = z.object({
   correo_institucional: z
     .string({ message: 'El correo es requerido' })
