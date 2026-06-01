@@ -30,6 +30,16 @@ type AuditContext = {
 
 const buildFullName = (nombres: string, apellidos: string): string => `${nombres} ${apellidos}`.trim();
 
+const ADMIN_MAIL_LOG_PREFIX = '[admin][temporary-password]';
+
+const maskEmail = (email: string): string => {
+  const [local, domain] = email.split('@');
+  if (!local || !domain) return email ? '***' : '(empty)';
+
+  const visible = local.length <= 2 ? local[0] : `${local[0]}${local[local.length - 1]}`;
+  return `${visible}${'*'.repeat(Math.max(local.length - visible.length, 3))}@${domain}`;
+};
+
 const registerActivity = async (context: AuditContext, accion: string): Promise<void> => {
   try {
     await adminRepository.createActivityLog({
@@ -115,6 +125,13 @@ export const adminService = {
     const temporaryPassword = generateTemporaryPassword();
     const contrasenaHash = await bcrypt.hash(temporaryPassword, env.BCRYPT_SALT_ROUNDS);
 
+    console.info(`${ADMIN_MAIL_LOG_PREFIX} Creating nutritionist`, {
+      email: maskEmail(data.correo_institucional),
+      nombres: data.nombres,
+      apellidos: data.apellidos,
+      registry: data.perfil_nutricionista.numero_registro_profesional,
+    });
+
     const created = await adminRepository.createNutritionistWithProfile({
       correo_institucional: data.correo_institucional,
       contrasena_hash: contrasenaHash,
@@ -132,10 +149,20 @@ export const adminService = {
       },
     });
 
+    console.info(`${ADMIN_MAIL_LOG_PREFIX} Nutritionist persisted, sending email`, {
+      id_usuario: created.user.id_usuario,
+      email: maskEmail(created.user.correo_institucional),
+    });
+
     await sendTemporaryPasswordEmail({
       to: data.correo_institucional,
       name: buildFullName(data.nombres, data.apellidos),
       temporaryPassword,
+    });
+
+    console.info(`${ADMIN_MAIL_LOG_PREFIX} Email sent after nutritionist creation`, {
+      id_usuario: created.user.id_usuario,
+      email: maskEmail(created.user.correo_institucional),
     });
 
     return {
@@ -380,10 +407,20 @@ export const adminService = {
       contrasena_hash: contrasenaHash,
     });
 
+    console.info(`${ADMIN_MAIL_LOG_PREFIX} Password reset persisted, sending email`, {
+      id_usuario: idUsuario,
+      email: maskEmail(existing.correo_institucional),
+    });
+
     await sendTemporaryPasswordEmail({
       to: existing.correo_institucional,
       name: buildFullName(existing.nombres, existing.apellidos),
       temporaryPassword,
+    });
+
+    console.info(`${ADMIN_MAIL_LOG_PREFIX} Email sent after password reset`, {
+      id_usuario: idUsuario,
+      email: maskEmail(existing.correo_institucional),
     });
 
     if (audit) {
