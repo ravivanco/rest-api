@@ -46,6 +46,7 @@ export function createApp(): Application {
     // ── Producción ──────────────────────────────────────────
     'https://dkfitt.decokasas.com',
     'https://app.dkfitt.decokasas.com',
+    'https://dk-fitt-clinic.onrender.com',
     // Swagger servido en Render (misma API)
     'https://dk-fitt-api.onrender.com',
 
