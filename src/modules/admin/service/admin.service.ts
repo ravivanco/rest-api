@@ -6,7 +6,7 @@ import {
   NotFoundError,
 } from '@errors/AppError';
 import { generateTemporaryPassword } from '@utils/password';
-import { sendTemporaryPasswordEmail } from '../../../services/mail.service';
+import { sendTemporaryPasswordEmail, verifyMailConnection } from '../../../services/mail.service';
 import { adminRepository } from '../repository/admin.repository';
 import {
   AdminActivityLogsQueryDto,
@@ -124,6 +124,8 @@ export const adminService = {
 
     const temporaryPassword = generateTemporaryPassword();
     const contrasenaHash = await bcrypt.hash(temporaryPassword, env.BCRYPT_SALT_ROUNDS);
+
+    await verifyMailConnection();
 
     console.info(`${ADMIN_MAIL_LOG_PREFIX} Creating nutritionist`, {
       email: maskEmail(data.correo_institucional),
@@ -401,6 +403,8 @@ export const adminService = {
 
     const temporaryPassword = generateTemporaryPassword(12);
     const contrasenaHash = await bcrypt.hash(temporaryPassword, env.BCRYPT_SALT_ROUNDS);
+
+    await verifyMailConnection();
 
     await adminRepository.updatePasswordAndRevokeTokens({
       id_usuario: idUsuario,
