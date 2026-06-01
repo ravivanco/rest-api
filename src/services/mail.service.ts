@@ -17,6 +17,24 @@ type MailErrorLike = {
   stack?: string;
 };
 
+type SmtpTransportOptions = nodemailer.TransportOptions & {
+  host: string;
+  port: number;
+  secure: boolean;
+  requireTLS: boolean;
+  family: number;
+  connectionTimeout: number;
+  greetingTimeout: number;
+  socketTimeout: number;
+  auth?: {
+    user: string;
+    pass: string;
+  };
+  tls: {
+    minVersion: string;
+  };
+};
+
 const MAIL_LOG_PREFIX = '[mail]';
 const SMTP_TIMEOUT_MS = 15_000;
 
@@ -84,7 +102,7 @@ const ensureMailConfig = (): void => {
   }
 };
 
-const transporter = nodemailer.createTransport({
+const transportOptions: SmtpTransportOptions = {
   host: env.SMTP_HOST,
   port: env.SMTP_PORT,
   secure: env.SMTP_SECURE,
@@ -102,7 +120,9 @@ const transporter = nodemailer.createTransport({
   tls: {
     minVersion: 'TLSv1.2',
   },
-});
+};
+
+const transporter = nodemailer.createTransport(transportOptions);
 
 export const sendTemporaryPasswordEmail = async (
   params: TemporaryPasswordEmailParams,
@@ -144,7 +164,6 @@ export const sendTemporaryPasswordEmail = async (
       messageId: info.messageId,
       accepted: info.accepted,
       rejected: info.rejected,
-      pending: info.pending,
       response: info.response,
     });
   } catch (error) {
