@@ -1,7 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { UnauthorizedError } from '@errors/AppError';
+import { ForbiddenError, UnauthorizedError } from '@errors/AppError';
 import { Role } from '@shared/constants/roles';
+
+const PASSWORD_CHANGE_ALLOWED_PATHS = new Set([
+  '/api/auth/me',
+  '/api/auth/logout',
+  '/api/auth/change-password',
+]);
+
+const isPasswordChangeAllowedPath = (req: Request): boolean => {
+  const path = req.originalUrl.split('?')[0];
+  return PASSWORD_CHANGE_ALLOWED_PATHS.has(path);
+};
 
 /**
  * Verifica el JWT en cada petición protegida.
@@ -68,6 +79,12 @@ export const authenticate = (
       estado:    payload.estado,
       requiere_cambio_contrasena: requiereCambio,
     };
+
+    if (requiereCambio && !isPasswordChangeAllowedPath(req)) {
+      throw new ForbiddenError(
+        'Debes cambiar tu contrasena temporal antes de continuar',
+      );
+    }
 
     next();
 

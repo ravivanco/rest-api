@@ -6,7 +6,6 @@ import {
   NotFoundError,
 } from '@errors/AppError';
 import { generateTemporaryPassword } from '@utils/password';
-import { sendTemporaryPasswordEmail, verifyMailConnection } from '../../../services/mail.service';
 import { adminRepository } from '../repository/admin.repository';
 import {
   AdminActivityLogsQueryDto,
@@ -122,10 +121,8 @@ export const adminService = {
       );
     }
 
-    const temporaryPassword = generateTemporaryPassword();
+    const temporaryPassword = data.contrasena_temporal ?? generateTemporaryPassword();
     const contrasenaHash = await bcrypt.hash(temporaryPassword, env.BCRYPT_SALT_ROUNDS);
-
-    await verifyMailConnection();
 
     console.info(`${ADMIN_MAIL_LOG_PREFIX} Creating nutritionist`, {
       email: maskEmail(data.correo_institucional),
@@ -151,18 +148,7 @@ export const adminService = {
       },
     });
 
-    console.info(`${ADMIN_MAIL_LOG_PREFIX} Nutritionist persisted, sending email`, {
-      id_usuario: created.user.id_usuario,
-      email: maskEmail(created.user.correo_institucional),
-    });
-
-    await sendTemporaryPasswordEmail({
-      to: data.correo_institucional,
-      name: buildFullName(data.nombres, data.apellidos),
-      temporaryPassword,
-    });
-
-    console.info(`${ADMIN_MAIL_LOG_PREFIX} Email sent after nutritionist creation`, {
+    console.info(`${ADMIN_MAIL_LOG_PREFIX} Nutritionist persisted, returning temporary password once`, {
       id_usuario: created.user.id_usuario,
       email: maskEmail(created.user.correo_institucional),
     });
@@ -178,6 +164,8 @@ export const adminService = {
       rol: created.user.rol,
       estado: created.user.estado,
       fecha_registro: created.user.fecha_registro,
+      requiere_cambio_contrasena: true,
+      contrasena_temporal: temporaryPassword,
       perfil_nutricionista: created.nutritionistProfile,
     };
   },
@@ -401,28 +389,15 @@ export const adminService = {
       throw new NotFoundError('Usuario');
     }
 
-    const temporaryPassword = generateTemporaryPassword(12);
+    const temporaryPassword = _providedPassword ?? generateTemporaryPassword(12);
     const contrasenaHash = await bcrypt.hash(temporaryPassword, env.BCRYPT_SALT_ROUNDS);
-
-    await verifyMailConnection();
 
     await adminRepository.updatePasswordAndRevokeTokens({
       id_usuario: idUsuario,
       contrasena_hash: contrasenaHash,
     });
 
-    console.info(`${ADMIN_MAIL_LOG_PREFIX} Password reset persisted, sending email`, {
-      id_usuario: idUsuario,
-      email: maskEmail(existing.correo_institucional),
-    });
-
-    await sendTemporaryPasswordEmail({
-      to: existing.correo_institucional,
-      name: buildFullName(existing.nombres, existing.apellidos),
-      temporaryPassword,
-    });
-
-    console.info(`${ADMIN_MAIL_LOG_PREFIX} Email sent after password reset`, {
+    console.info(`${ADMIN_MAIL_LOG_PREFIX} Password reset persisted, returning temporary password once`, {
       id_usuario: idUsuario,
       email: maskEmail(existing.correo_institucional),
     });
@@ -436,7 +411,9 @@ export const adminService = {
 
     return {
       id_usuario: idUsuario,
-      message: 'Se envio una contrasena temporal al correo',
+      requiere_cambio_contrasena: true,
+      contrasena_temporal: temporaryPassword,
+      message: 'Copia la contrasena temporal y compartela con el usuario por un canal seguro',
     };
   },
 };

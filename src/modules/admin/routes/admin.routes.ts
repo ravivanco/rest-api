@@ -161,6 +161,9 @@ adminRouter.get('/users', adminController.listUsers);
  *               correo_institucional:
  *                 type: string
  *                 format: email
+ *               contrasena_temporal:
+ *                 type: string
+ *                 description: Opcional. Si no se envia, el backend genera una contrasena temporal segura.
  *               nombres:
  *                 type: string
  *               apellidos:
@@ -194,7 +197,7 @@ adminRouter.get('/users', adminController.listUsers);
  *                     nullable: true
  *     responses:
  *       201:
- *         description: Nutricionista creada correctamente
+ *         description: Nutricionista creada correctamente. Incluye contrasena_temporal para copiarla una sola vez.
  *       400:
  *         $ref: '#/components/responses/BadRequest'
  *       401:
@@ -431,7 +434,7 @@ adminRouter.patch(
  *                 type: string
  *     responses:
  *       200:
- *         description: Contraseña reseteada e invalidación de sesiones completada
+ *         description: Contraseña reseteada. Incluye contrasena_temporal para copiarla una sola vez.
  *       400:
  *         $ref: '#/components/responses/BadRequest'
  *       401:

@@ -51,7 +51,11 @@ export const adminController = {
     try {
       const payload = req.body as CreateNutritionistDto;
       const result = await adminService.createNutritionist(payload);
-      created(res, result, 'Nutricionista creada correctamente');
+      created(
+        res,
+        result,
+        'Nutricionista creada correctamente. Copia la contrasena temporal y compartela por un canal seguro.',
+      );
     } catch (error) {
       next(error);
     }
@@ -171,7 +175,7 @@ export const adminController = {
         },
       );
 
-      ok(res, result);
+      ok(res, result, 'Contrasena temporal generada. Copiala y compartela por un canal seguro.');
     } catch (error) {
       next(error);
     }
