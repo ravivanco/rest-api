@@ -1,11 +1,12 @@
 import bcrypt from 'bcryptjs';
-import { randomInt } from 'crypto';
 import { env } from '@config/env';
 import {
   BusinessRuleError,
   ConflictError,
   NotFoundError,
 } from '@errors/AppError';
+import { generateTemporaryPassword } from '@utils/password';
+import { sendTemporaryPasswordEmail } from '../../../services/mail.service';
 import { adminRepository } from '../repository/admin.repository';
 import {
   AdminActivityLogsQueryDto,
@@ -14,32 +15,6 @@ import {
   UpdateAdminUserDto,
   UpdateNutritionistInfoDto,
 } from '../dto/admin.dto';
-
-const generateTemporaryPassword = (length = 12): string => {
-  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-  const lower = 'abcdefghijkmnopqrstuvwxyz';
-  const numbers = '23456789';
-  const symbols = '!@#$%^&*()_+-=';
-  const all = upper + lower + numbers + symbols;
-
-  const seed = [
-    upper[randomInt(upper.length)],
-    lower[randomInt(lower.length)],
-    numbers[randomInt(numbers.length)],
-    symbols[randomInt(symbols.length)],
-  ];
-
-  while (seed.length < length) {
-    seed.push(all[randomInt(all.length)]);
-  }
-
-  for (let i = seed.length - 1; i > 0; i--) {
-    const j = randomInt(i + 1);
-    [seed[i], seed[j]] = [seed[j], seed[i]];
-  }
-
-  return seed.join('');
-};
 
 type AuditActor = {
   id: number;
@@ -137,7 +112,8 @@ export const adminService = {
       );
     }
 
-    const contrasenaHash = await bcrypt.hash(data.contrasena_temporal, env.BCRYPT_SALT_ROUNDS);
+    const temporaryPassword = generateTemporaryPassword();
+    const contrasenaHash = await bcrypt.hash(temporaryPassword, env.BCRYPT_SALT_ROUNDS);
 
     const created = await adminRepository.createNutritionistWithProfile({
       correo_institucional: data.correo_institucional,
@@ -154,6 +130,12 @@ export const adminService = {
         foto_perfil_url: data.perfil_nutricionista.foto_perfil_url,
         horario_atencion: data.perfil_nutricionista.horario_atencion,
       },
+    });
+
+    await sendTemporaryPasswordEmail({
+      to: data.correo_institucional,
+      name: buildFullName(data.nombres, data.apellidos),
+      temporaryPassword,
     });
 
     return {
@@ -383,19 +365,25 @@ export const adminService = {
     return updated;
   },
 
-  async resetUserPassword(idUsuario: number, providedPassword?: string, audit?: AuditContext) {
+  async resetUserPassword(idUsuario: number, _providedPassword?: string, audit?: AuditContext) {
     const existing = await adminRepository.findUserById(idUsuario);
 
     if (!existing) {
       throw new NotFoundError('Usuario');
     }
 
-    const temporaryPassword = providedPassword ?? generateTemporaryPassword(12);
+    const temporaryPassword = generateTemporaryPassword(12);
     const contrasenaHash = await bcrypt.hash(temporaryPassword, env.BCRYPT_SALT_ROUNDS);
 
     await adminRepository.updatePasswordAndRevokeTokens({
       id_usuario: idUsuario,
       contrasena_hash: contrasenaHash,
+    });
+
+    await sendTemporaryPasswordEmail({
+      to: existing.correo_institucional,
+      name: buildFullName(existing.nombres, existing.apellidos),
+      temporaryPassword,
     });
 
     if (audit) {
@@ -407,8 +395,7 @@ export const adminService = {
 
     return {
       id_usuario: idUsuario,
-      temporary_password: temporaryPassword,
-      message: 'Contraseña reseteada e invalidación de sesiones completada.',
+      message: 'Se envio una contrasena temporal al correo',
     };
   },
 };

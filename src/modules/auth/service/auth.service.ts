@@ -199,6 +199,7 @@ export const authService = {
         role:      usuario.rol,
         id_perfil,
         estado:    usuario.estado,
+        requiere_cambio_contrasena: usuario.requiere_cambio_contrasena,
       },
       env.JWT_SECRET,
       {
@@ -235,6 +236,7 @@ export const authService = {
         rol:                  usuario.rol,
         fecha_nacimiento:     usuario.fecha_nacimiento,
         edad:                 usuario.edad,
+        requiere_cambio_contrasena: usuario.requiere_cambio_contrasena,
         formulario_completado,
         modulo_habilitado,
         onboarding,
@@ -306,6 +308,7 @@ export const authService = {
         role:      usuario.rol,
         id_perfil,
         estado:    usuario.estado,
+        requiere_cambio_contrasena: usuario.requiere_cambio_contrasena,
       },
       env.JWT_SECRET,
       { expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] },

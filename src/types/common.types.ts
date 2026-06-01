@@ -8,6 +8,7 @@ export interface AuthUser {
   role: Role;
   id_perfil: number | null;
   estado: string;
+  requiere_cambio_contrasena: boolean;
 }
 
 // Parámetros de paginación

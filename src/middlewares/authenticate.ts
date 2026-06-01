@@ -46,6 +46,7 @@ export const authenticate = (
       role:      Role;
       id_perfil: number | null;
       estado:    string;
+      requiere_cambio_contrasena: boolean;
     };
 
     // Verificar que la cuenta sigue activa
@@ -54,12 +55,18 @@ export const authenticate = (
     }
 
     // Adjuntar datos del usuario para uso en controllers
+    const requiereCambio =
+      typeof payload.requiere_cambio_contrasena === 'boolean'
+        ? payload.requiere_cambio_contrasena
+        : false;
+
     req.user = {
       id:        payload.sub,
       email:     payload.email,
       role:      payload.role,
       id_perfil: payload.id_perfil,
       estado:    payload.estado,
+      requiere_cambio_contrasena: requiereCambio,
     };
 
     next();
@@ -108,15 +115,22 @@ export const optionalAuthenticate = (
       role:      Role;
       id_perfil: number | null;
       estado:    string;
+      requiere_cambio_contrasena: boolean;
     };
 
     if (payload.estado === 'activo') {
+      const requiereCambio =
+        typeof payload.requiere_cambio_contrasena === 'boolean'
+          ? payload.requiere_cambio_contrasena
+          : false;
+
       req.user = {
         id:        payload.sub,
         email:     payload.email,
         role:      payload.role,
         id_perfil: payload.id_perfil,
         estado:    payload.estado,
+        requiere_cambio_contrasena: requiereCambio,
       };
     }
     next();

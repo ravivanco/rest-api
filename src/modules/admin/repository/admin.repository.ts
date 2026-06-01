@@ -364,8 +364,9 @@ export const adminRepository = {
 
       const userResult = await client.query<AdminUserRow>(
         `INSERT INTO usuarios
-           (correo_institucional, contrasena_hash, nombres, apellidos, edad, sexo, fecha_nacimiento, rol, estado)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'nutricionista', 'activo')
+           (correo_institucional, contrasena_hash, nombres, apellidos, edad, sexo, fecha_nacimiento, rol, estado,
+            requiere_cambio_contrasena, password_temporal_generada_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'nutricionista', 'activo', TRUE, NOW())
          RETURNING
            id_usuario,
            correo_institucional,
@@ -477,6 +478,8 @@ export const adminRepository = {
       await client.query(
         `UPDATE usuarios
          SET contrasena_hash = $1,
+             requiere_cambio_contrasena = TRUE,
+             password_temporal_generada_at = NOW(),
              updated_at = NOW()
          WHERE id_usuario = $2`,
         [data.contrasena_hash, data.id_usuario],

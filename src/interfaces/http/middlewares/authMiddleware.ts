@@ -10,6 +10,7 @@ interface JwtPayload {
   role: Role;
   id_perfil: number | null;
   estado: string;
+  requiere_cambio_contrasena: boolean;
   iat: number;
   exp: number;
 }
@@ -49,12 +50,18 @@ export const authMiddleware = (
 
     const payload = decoded;
 
+    const requiereCambio =
+      typeof payload.requiere_cambio_contrasena === 'boolean'
+        ? payload.requiere_cambio_contrasena
+        : false;
+
     req.user = {
       id: payload.sub,
       email: payload.email,
       role: payload.role,
       id_perfil: payload.id_perfil,
       estado: payload.estado,
+      requiere_cambio_contrasena: requiereCambio,
     };
 
     next();

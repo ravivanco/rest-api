@@ -84,6 +84,7 @@ export const authController = {
         role:      req.user!.role,
         id_perfil: req.user!.id_perfil,
         estado:    req.user!.estado,
+        requiere_cambio_contrasena: req.user!.requiere_cambio_contrasena,
       });
     } catch (error) {
       next(error);

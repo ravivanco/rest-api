@@ -52,6 +52,14 @@ export const env = {
   // ── Gemini ───────────────────────────────────────────────
   GEMINI_API_KEY:  process.env.GEMINI_API_KEY  || '',
   GEMINI_MODEL:    process.env.GEMINI_MODEL    || 'gemini-1.5-flash',
+
+  // ── SMTP ─────────────────────────────────────────────────
+  SMTP_HOST:   process.env.SMTP_HOST || '',
+  SMTP_PORT:   parseInt(process.env.SMTP_PORT || '587'),
+  SMTP_SECURE: process.env.SMTP_SECURE === 'true',
+  SMTP_USER:   process.env.SMTP_USER || '',
+  SMTP_PASS:   process.env.SMTP_PASS || '',
+  MAIL_FROM:   process.env.MAIL_FROM || '',
 };
 
 // Verificar variables críticas al arrancar
@@ -77,4 +85,10 @@ if (cloudinaryMissing.length > 0) {
 
 if (!process.env.GEMINI_API_KEY) {
   console.warn('\n⚠️ GEMINI_API_KEY no está configurada. El analizador de calorías por imagen no funcionará.\n');
+}
+
+const smtpMissing = ['SMTP_HOST', 'SMTP_PORT', 'MAIL_FROM'].filter(key => !process.env[key]);
+
+if (smtpMissing.length > 0) {
+  console.warn('\n⚠️ SMTP no está configurado. El envio de correos no funcionara hasta agregar las variables.\n');
 }

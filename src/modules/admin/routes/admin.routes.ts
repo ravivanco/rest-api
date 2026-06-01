@@ -151,7 +151,6 @@ adminRouter.get('/users', adminController.listUsers);
  *             type: object
  *             required:
  *               - correo_institucional
- *               - contrasena_temporal
  *               - nombres
  *               - apellidos
  *               - edad
@@ -162,8 +161,6 @@ adminRouter.get('/users', adminController.listUsers);
  *               correo_institucional:
  *                 type: string
  *                 format: email
- *               contrasena_temporal:
- *                 type: string
  *               nombres:
  *                 type: string
  *               apellidos:

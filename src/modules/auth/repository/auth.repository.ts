@@ -16,6 +16,7 @@ export interface UsuarioRow {
   rol:                     string;
   estado:                  string;
   fecha_registro:          string;
+  requiere_cambio_contrasena: boolean;
 }
 
 export interface PerfilPacienteRow {
@@ -46,7 +47,7 @@ export const authRepository = {
     const result = await pool.query<UsuarioRow>(
       `SELECT id_usuario, correo_institucional, contrasena_hash,
               nombres, apellidos, edad, sexo, fecha_nacimiento,
-              rol, estado, fecha_registro
+              rol, estado, fecha_registro, requiere_cambio_contrasena
        FROM   usuarios
        WHERE  correo_institucional = $1
          AND  estado != 'eliminado'`,
@@ -64,7 +65,7 @@ export const authRepository = {
     const result = await pool.query<UsuarioRow>(
       `SELECT id_usuario, correo_institucional, contrasena_hash,
               nombres, apellidos, edad, sexo, fecha_nacimiento,
-              rol, estado, fecha_registro
+              rol, estado, fecha_registro, requiere_cambio_contrasena
        FROM   usuarios
        WHERE  id_usuario = $1`,
       [id],
@@ -116,7 +117,7 @@ export const authRepository = {
          VALUES ($1, $2, $3, $4, $5, $6, $7, 'paciente', 'activo')
          RETURNING id_usuario, correo_institucional, contrasena_hash,
                    nombres, apellidos, edad, sexo, fecha_nacimiento,
-                   rol, estado, fecha_registro`,
+                   rol, estado, fecha_registro, requiere_cambio_contrasena`,
         [
           data.correo,
           data.contrasenaHash,
@@ -241,6 +242,8 @@ export const authRepository = {
     await pool.query(
       `UPDATE usuarios
        SET    contrasena_hash = $1,
+              requiere_cambio_contrasena = FALSE,
+              password_temporal_generada_at = NULL,
               updated_at      = NOW()
        WHERE  id_usuario      = $2`,
       [newHash, userId],

@@ -9,6 +9,7 @@ declare global {
         role: Role;
         id_perfil: number | null;
         estado: string;
+        requiere_cambio_contrasena: boolean;
       };
     }
   }

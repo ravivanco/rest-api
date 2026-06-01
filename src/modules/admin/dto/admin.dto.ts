@@ -50,13 +50,14 @@ export const CreateNutritionistDto = z.object({
     .transform((val) => val.toLowerCase().trim()),
 
   contrasena_temporal: z
-    .string({ message: 'La contraseña temporal es requerida' })
+    .string()
     .min(8, 'La contraseña debe tener al menos 8 caracteres')
     .max(128, 'La contraseña no puede superar 128 caracteres')
     .regex(/[A-Z]/, 'Debe contener al menos una mayúscula')
     .regex(/[a-z]/, 'Debe contener al menos una minúscula')
     .regex(/[0-9]/, 'Debe contener al menos un número')
-    .regex(PASSWORD_REGEX, 'Debe contener al menos un carácter especial'),
+    .regex(PASSWORD_REGEX, 'Debe contener al menos un carácter especial')
+    .optional(),
 
   nombres: z
     .string({ message: 'Los nombres son requeridos' })
