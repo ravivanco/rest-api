@@ -5,6 +5,9 @@ import { env } from '@config/env';
 
 interface PgErrorLike {
   code?: string;
+  constraint?: string;
+  detail?: string;
+  table?: string;
 }
 
 const isPgError = (error: unknown): error is PgErrorLike => {
@@ -54,6 +57,28 @@ export const errorHandler = (
 
   // Errores comunes de PostgreSQL convertidos a respuestas funcionales
   if (isPgError(err) && err.code === '23503') {
+    const detail = err.detail ?? '';
+    const isReferencedByOtherRows =
+      detail.includes('is still referenced from table')
+      || detail.includes('todavÃ­a es referenciada desde la tabla')
+      || detail.includes('todavia es referenciada desde la tabla');
+
+    if (isReferencedByOtherRows) {
+      res.status(422).json({
+        success: false,
+        error: {
+          code: 'FOREIGN_KEY_VIOLATION',
+          message: 'No se puede eliminar el recurso porque todavia esta referenciado por otros datos del sistema.',
+          details: {
+            constraint: err.constraint,
+            table: err.table,
+            reason: 'RESOURCE_IN_USE',
+          },
+        },
+      });
+      return;
+    }
+
     res.status(422).json({
       success: false,
       error: {

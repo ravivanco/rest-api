@@ -493,6 +493,8 @@ export const dishesRepository = {
     deleted: boolean;
     menusAfectados: number;
     planesAfectados: number;
+    historialesAfectados: number;
+    sugerenciasAfectadas: number;
   }> {
     const client = await pool.connect();
     const placeholderNombre = 'Plato eliminado';
@@ -547,6 +549,27 @@ export const dishesRepository = {
         [id, placeholderId],
       );
 
+      const updateHistorialAnteriorResult = await client.query(
+        `UPDATE historial_cambios_menu
+         SET id_plato_anterior = $2
+         WHERE id_plato_anterior = $1`,
+        [id, placeholderId],
+      );
+
+      const updateHistorialNuevoResult = await client.query(
+        `UPDATE historial_cambios_menu
+         SET id_plato_nuevo = $2
+         WHERE id_plato_nuevo = $1`,
+        [id, placeholderId],
+      );
+
+      const updateSugerenciasResult = await client.query(
+        `UPDATE sugerencias_receta
+         SET id_plato_sugerido = $2
+         WHERE id_plato_sugerido = $1`,
+        [id, placeholderId],
+      );
+
       await client.query(
         `DELETE FROM plato_aptitudes WHERE id_plato = $1`,
         [id],
@@ -568,6 +591,10 @@ export const dishesRepository = {
         deleted: (deleteResult.rowCount ?? 0) > 0,
         menusAfectados: updateMenusResult.rowCount ?? 0,
         planesAfectados: parseInt(planesResult.rows[0]?.total ?? '0', 10),
+        historialesAfectados:
+          (updateHistorialAnteriorResult.rowCount ?? 0)
+          + (updateHistorialNuevoResult.rowCount ?? 0),
+        sugerenciasAfectadas: updateSugerenciasResult.rowCount ?? 0,
       };
     } catch (error) {
       await client.query('ROLLBACK');

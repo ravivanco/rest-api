@@ -132,6 +132,8 @@ export const dishesService = {
     id_plato: number;
     menus_afectados: number;
     planes_afectados: number;
+    historiales_afectados: number;
+    sugerencias_afectadas: number;
     accion: 'desvinculado_y_eliminado';
   }> {
     const placeholderNombre = 'Plato eliminado';
@@ -148,6 +150,8 @@ export const dishesService = {
       id_plato: id,
       menus_afectados: result.menusAfectados,
       planes_afectados: result.planesAfectados,
+      historiales_afectados: result.historialesAfectados,
+      sugerencias_afectadas: result.sugerenciasAfectadas,
       accion: 'desvinculado_y_eliminado',
     };
   },
