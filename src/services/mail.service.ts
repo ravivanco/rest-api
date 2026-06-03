@@ -172,6 +172,64 @@ export const sendTemporaryPasswordEmail = async (
   }
 };
 
+type ResetCodeEmailParams = {
+  to: string;
+  name: string;
+  code: string;
+};
+
+export const sendResetCodeEmail = async (
+  params: ResetCodeEmailParams,
+): Promise<void> => {
+  ensureMailConfig();
+
+  const { to, name, code } = params;
+  const from = normalizeMailFrom(env.MAIL_FROM);
+
+  console.info(`${MAIL_LOG_PREFIX} Preparing reset code email`, {
+    to: maskEmail(to),
+    name,
+  });
+  logMailConfig();
+
+  try {
+    await verifyMailConnection();
+
+    const info = await transporter.sendMail({
+      from,
+      to,
+      subject: 'Código de recuperación de contraseña — DK Fitt',
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #222; max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 20px; border-radius: 8px;">
+          <h2 style="color: #2e7d32; text-align: center;">Recuperación de Contraseña</h2>
+          <p>Hola <strong>${name}</strong>,</p>
+          <p>Has solicitado restablecer tu contraseña para acceder a la aplicación móvil de <strong>DK Fitt</strong>.</p>
+          <p>Utiliza el siguiente código temporal de 6 dígitos para completar el proceso. Este código es de un solo uso y expira en 15 minutos:</p>
+          <div style="text-align: center; margin: 24px 0;">
+            <span style="display: inline-block; padding: 14px 28px; background: #e8f5e9; color: #2e7d32; border-radius: 8px; font-size: 24px; font-weight: bold; letter-spacing: 4px; border: 1px solid #c8e6c9;">
+              ${code}
+            </span>
+          </div>
+          <p style="font-size: 13px; color: #666;">Si tú no solicitaste este cambio, puedes ignorar este correo de forma segura. Tu contraseña actual seguirá siendo la misma.</p>
+          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+          <p style="font-size: 12px; color: #999; text-align: center;">DK Fitt - Control Nutricional Decokasas S.A.S.</p>
+        </div>
+      `,
+    });
+
+    console.info(`${MAIL_LOG_PREFIX} Reset code email sent`, {
+      to: maskEmail(to),
+      messageId: info.messageId,
+      accepted: info.accepted,
+      rejected: info.rejected,
+      response: info.response,
+    });
+  } catch (error) {
+    logMailError('Reset code email', error);
+    throw error;
+  }
+};
+
 export const verifyMailConnection = async (): Promise<void> => {
   ensureMailConfig();
   logMailConfig();

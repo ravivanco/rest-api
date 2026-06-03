@@ -13,6 +13,7 @@ import {
   NotFoundError,
 } from '@errors/AppError';
 import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto } from '../dto/auth.dto';
+import { sendResetCodeEmail } from '../../../services/mail.service';
 
 /**
  * Genera un hash SHA-256 del refresh token.
@@ -390,14 +391,23 @@ export const authService = {
     // Guardar en la base de datos
     await authRepository.saveResetCode(data.correo_institucional, code, expiresAt);
 
-    // Imprimir el código en la consola del backend.
-    // Esto simula el envío del correo electrónico.
-    console.log(`\n======================================================`);
-    console.log(`📧 CORREO DE RECUPERACIÓN DE CONTRASEÑA`);
-    console.log(`Destinatario: ${data.correo_institucional}`);
-    console.log(`Código OTP: ${code}`);
-    console.log(`Expira en: 15 minutos (${expiresAt.toLocaleTimeString()})`);
-    console.log(`======================================================\n`);
+    // Enviar el correo electrónico real con el código OTP
+    try {
+      const nombreCompleto = `${usuario.nombres} ${usuario.apellidos}`.trim();
+      await sendResetCodeEmail({
+        to: data.correo_institucional,
+        name: nombreCompleto || 'Usuario',
+        code,
+      });
+    } catch (mailError) {
+      console.error('No se pudo enviar el correo de recuperación:', mailError);
+      // Fallback: Imprimir el código en la consola del backend.
+      console.log(`\n======================================================`);
+      console.log(`📧 FALLBACK: CÓDIGO OTP DE RECUPERACIÓN`);
+      console.log(`Destinatario: ${data.correo_institucional}`);
+      console.log(`Código OTP: ${code}`);
+      console.log(`======================================================\n`);
+    }
 
     return {
       message: 'Código de recuperación generado. Por favor revisa tu correo electrónico.',

@@ -53,13 +53,13 @@ export const env = {
   GEMINI_API_KEY:  process.env.GEMINI_API_KEY  || '',
   GEMINI_MODEL:    process.env.GEMINI_MODEL    || 'gemini-1.5-flash',
 
-  // ── SMTP ─────────────────────────────────────────────────
-  SMTP_HOST:   process.env.SMTP_HOST || '',
-  SMTP_PORT:   parseInt(process.env.SMTP_PORT || '587'),
-  SMTP_SECURE: process.env.SMTP_SECURE === 'true',
-  SMTP_USER:   process.env.SMTP_USER || '',
-  SMTP_PASS:   process.env.SMTP_PASS || '',
-  MAIL_FROM:   process.env.MAIL_FROM || '',
+  // ── SMTP / Correo ─────────────────────────────────────────
+  SMTP_HOST:       process.env.SMTP_HOST || 'smtp.gmail.com',
+  SMTP_PORT:       parseInt(process.env.SMTP_PORT || '587'),
+  SMTP_SECURE:     process.env.SMTP_SECURE === 'true',
+  SMTP_USER:       process.env.SMTP_USER || '',
+  SMTP_PASS:       process.env.SMTP_PASS || '',
+  MAIL_FROM:       process.env.MAIL_FROM || 'no-reply@decokasas.com',
 };
 
 // Verificar variables críticas al arrancar
@@ -85,6 +85,10 @@ if (cloudinaryMissing.length > 0) {
 
 if (!process.env.GEMINI_API_KEY) {
   console.warn('\n⚠️ GEMINI_API_KEY no está configurada. El analizador de calorías por imagen no funcionará.\n');
+}
+
+if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+  console.warn('\n⚠️ SMTP_USER o SMTP_PASS no están configurados. El envío real de correos de recuperación no funcionará.\n');
 }
 
 const smtpMissing = ['SMTP_HOST', 'SMTP_PORT', 'MAIL_FROM'].filter(key => !process.env[key]);
