@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { authService } from '../service/auth.service';
 import { ok, created, noContent } from '@utils/response';
-import { RegisterDto, LoginDto, RefreshTokenDto, LogoutDto, ChangePasswordDto } from '../dto/auth.dto';
+import { RegisterDto, LoginDto, RefreshTokenDto, LogoutDto, ChangePasswordDto, ForgotPasswordDto, ResetPasswordDto } from '../dto/auth.dto';
 
 /**
  * Controller de autenticación.
@@ -101,6 +101,36 @@ export const authController = {
       const { contrasena_actual, contrasena_nueva } = req.body as ChangePasswordDto;
       await authService.changePassword(req.user!.id, contrasena_actual, contrasena_nueva);
       ok(res, null, 'Contraseña actualizada. Inicia sesión nuevamente en todos tus dispositivos.');
+    } catch (error) {
+      next(error);
+    }
+  },
+
+
+  /**
+   * POST /api/auth/forgot-password
+   * Solicita el restablecimiento enviando un código OTP.
+   */
+  async forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const data = req.body as ForgotPasswordDto;
+      const result = await authService.forgotPassword(data);
+      ok(res, result);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+
+  /**
+   * POST /api/auth/reset-password
+   * Restablece la contraseña usando el código recibido.
+   */
+  async resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const data = req.body as ResetPasswordDto;
+      const result = await authService.resetPassword(data);
+      ok(res, result);
     } catch (error) {
       next(error);
     }

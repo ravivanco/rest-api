@@ -250,4 +250,51 @@ export const authRepository = {
     );
   },
 
+
+  /**
+   * Guarda el código de recuperación de contraseña y su expiración.
+   */
+  async saveResetCode(email: string, code: string, expiresAt: Date): Promise<void> {
+    await pool.query(
+      `UPDATE usuarios
+       SET    reset_code         = $1,
+              reset_code_expires = $2,
+              updated_at         = NOW()
+       WHERE  correo_institucional = $3`,
+      [code, expiresAt, email],
+    );
+  },
+
+
+  /**
+   * Verifica si un código de recuperación es válido y no ha expirado.
+   */
+  async verifyResetCode(email: string, code: string): Promise<boolean> {
+    const result = await pool.query<{ exists: boolean }>(
+      `SELECT EXISTS(
+         SELECT 1 FROM usuarios
+         WHERE correo_institucional = $1
+           AND reset_code = $2
+           AND reset_code_expires > NOW()
+       ) as exists`,
+      [email, code],
+    );
+    return result.rows[0].exists;
+  },
+
+
+  /**
+   * Limpia el código de recuperación para un usuario.
+   */
+  async clearResetCode(email: string): Promise<void> {
+    await pool.query(
+      `UPDATE usuarios
+       SET    reset_code         = NULL,
+              reset_code_expires = NULL,
+              updated_at         = NOW()
+       WHERE  correo_institucional = $1`,
+      [email],
+    );
+  },
+
 };

@@ -120,3 +120,43 @@ export const ChangePasswordDto = z.object({
 });
 
 export type ChangePasswordDto = z.infer<typeof ChangePasswordDto>;
+
+
+/**
+ * DTO para solicitar la recuperación de contraseña (Forgot Password).
+ */
+export const ForgotPasswordDto = z.object({
+  correo_institucional: z
+    .string({ message: 'El correo es requerido' })
+    .email('Formato de correo inválido')
+    .transform(val => val.toLowerCase().trim()),
+});
+
+export type ForgotPasswordDto = z.infer<typeof ForgotPasswordDto>;
+
+
+/**
+ * DTO para restablecer la contraseña usando el código OTP recibido.
+ */
+export const ResetPasswordDto = z.object({
+  correo_institucional: z
+    .string({ message: 'El correo es requerido' })
+    .email('Formato de correo inválido')
+    .transform(val => val.toLowerCase().trim()),
+
+  codigo: z
+    .string({ message: 'El código es requerido' })
+    .length(6, 'El código debe tener exactamente 6 dígitos')
+    .regex(/^\d+$/, 'El código debe contener solo números'),
+
+  nueva_contrasena: z
+    .string({ message: 'La contraseña nueva es requerida' })
+    .min(8,   'La contraseña debe tener al menos 8 caracteres')
+    .max(128, 'La contraseña no puede superar 128 caracteres')
+    .regex(/[A-Z]/,              'Debe contener al menos una mayúscula')
+    .regex(/[a-z]/,              'Debe contener al menos una minúscula')
+    .regex(/[0-9]/,              'Debe contener al menos un número')
+    .regex(/[!@#$%^&*()_+\-=]/, 'Debe contener al menos un carácter especial'),
+});
+
+export type ResetPasswordDto = z.infer<typeof ResetPasswordDto>;

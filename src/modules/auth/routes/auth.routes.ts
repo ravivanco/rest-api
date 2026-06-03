@@ -9,6 +9,8 @@ import {
   RefreshTokenDto,
   LogoutDto,
   ChangePasswordDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
 } from '../dto/auth.dto';
 
 export const authRouter = Router();
@@ -177,4 +179,80 @@ authRouter.patch(
   authenticate,
   validate(ChangePasswordDto),
   authController.changePassword,
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/forgot-password:
+ *   post:
+ *     summary: Solicitar recuperación de contraseña (envía código OTP de 6 dígitos)
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [correo_institucional]
+ *             properties:
+ *               correo_institucional:
+ *                 type: string
+ *                 format: email
+ *                 example: paciente@decokasas.com
+ *     responses:
+ *       200:
+ *         description: Código OTP generado y enviado
+ *       404:
+ *         description: El correo no está registrado
+ */
+authRouter.post(
+  '/forgot-password',
+  authLimiter,
+  validate(ForgotPasswordDto),
+  authController.forgotPassword,
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/reset-password:
+ *   post:
+ *     summary: Restablecer contraseña olvidada usando el código OTP
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [correo_institucional, codigo, nueva_contrasena]
+ *             properties:
+ *               correo_institucional:
+ *                 type: string
+ *                 format: email
+ *                 example: paciente@decokasas.com
+ *               codigo:
+ *                 type: string
+ *                 example: "123456"
+ *               nueva_contrasena:
+ *                 type: string
+ *                 example: "NuevaClave123!"
+ *     responses:
+ *       200:
+ *         description: Contraseña restablecida exitosamente
+ *       400:
+ *         description: Error de validación de datos
+ *       422:
+ *         description: Código incorrecto o expirado
+ */
+authRouter.post(
+  '/reset-password',
+  authLimiter,
+  validate(ResetPasswordDto),
+  authController.resetPassword,
 );

@@ -10,8 +10,9 @@ import {
   UnauthorizedError,
   ForbiddenError,
   BusinessRuleError,
+  NotFoundError,
 } from '@errors/AppError';
-import { RegisterDto, LoginDto } from '../dto/auth.dto';
+import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto } from '../dto/auth.dto';
 
 /**
  * Genera un hash SHA-256 del refresh token.
@@ -367,6 +368,73 @@ export const authService = {
 
     // Revocar todos los tokens activos (forzar re-login en todos los dispositivos)
     await authRepository.revokeAllUserTokens(userId);
+  },
+
+
+  /**
+   * Solicita el restablecimiento de contraseña generando un código OTP de 6 dígitos.
+   */
+  async forgotPassword(data: ForgotPasswordDto): Promise<{ message: string }> {
+    const usuario = await authRepository.findByEmail(data.correo_institucional);
+    if (!usuario) {
+      throw new NotFoundError('Usuario');
+    }
+
+    // Generar un código numérico aleatorio de 6 dígitos
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // El código expirará en 15 minutos
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+
+    // Guardar en la base de datos
+    await authRepository.saveResetCode(data.correo_institucional, code, expiresAt);
+
+    // Imprimir el código en la consola del backend.
+    // Esto simula el envío del correo electrónico.
+    console.log(`\n======================================================`);
+    console.log(`📧 CORREO DE RECUPERACIÓN DE CONTRASEÑA`);
+    console.log(`Destinatario: ${data.correo_institucional}`);
+    console.log(`Código OTP: ${code}`);
+    console.log(`Expira en: 15 minutos (${expiresAt.toLocaleTimeString()})`);
+    console.log(`======================================================\n`);
+
+    return {
+      message: 'Código de recuperación generado. Por favor revisa tu correo electrónico.',
+    };
+  },
+
+
+  /**
+   * Restablece la contraseña usando el correo, código OTP y la nueva contraseña.
+   */
+  async resetPassword(data: ResetPasswordDto): Promise<{ message: string }> {
+    // 1. Verificar si el código coincide y está vigente
+    const esValido = await authRepository.verifyResetCode(data.correo_institucional, data.codigo);
+    if (!esValido) {
+      throw new BusinessRuleError('El código de recuperación es incorrecto o ha expirado.');
+    }
+
+    const usuario = await authRepository.findByEmail(data.correo_institucional);
+    if (!usuario) {
+      throw new NotFoundError('Usuario');
+    }
+
+    // 2. Hashear la nueva contraseña
+    const nuevoHash = await bcrypt.hash(data.nueva_contrasena, env.BCRYPT_SALT_ROUNDS);
+
+    // 3. Actualizar la contraseña en la base de datos
+    await authRepository.updatePassword(usuario.id_usuario, nuevoHash);
+
+    // 4. Limpiar el código usado para que no se pueda volver a utilizar
+    await authRepository.clearResetCode(data.correo_institucional);
+
+    // 5. Cerrar todas las sesiones activas del usuario por seguridad
+    await authRepository.revokeAllUserTokens(usuario.id_usuario);
+
+    return {
+      message: 'Tu contraseña ha sido restablecida exitosamente. Inicia sesión con tus nuevas credenciales.',
+    };
   },
 
 };

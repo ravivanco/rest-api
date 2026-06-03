@@ -1,0 +1,36 @@
+### ARCHIVO DE PRUEBAS PARA LA RECUPERACIÓN DE CONTRASEÑA
+### Puedes usar la extensión "REST Client" en VS Code
+
+@baseUrl = http://localhost:3000/api
+
+### 1. SOLICITAR CÓDIGO DE RECUPERACIÓN (OLVIDÉ MI CONTRASEÑA)
+POST {{baseUrl}}/auth/forgot-password
+Content-Type: application/json
+
+{
+  "correo_institucional": "test.usuario@decokasas.com"
+}
+
+# NOTA: Al ejecutar la petición anterior, revisa la consola de ejecución del backend.
+# Verás un log con el código OTP de 6 dígitos generado (ej. "123456").
+
+
+### 2. RESTABLECER LA CONTRASEÑA CON EL CÓDIGO RECIBIDO
+POST {{baseUrl}}/auth/reset-password
+Content-Type: application/json
+
+{
+  "correo_institucional": "test.usuario@decokasas.com",
+  "codigo": "CAMBIA_POR_EL_CODIGO_DE_CONSOLA",
+  "nueva_contrasena": "ClaveModificada123!"
+}
+
+
+### 3. PROBAR INICIO DE SESIÓN CON LA NUEVA CONTRASEÑA
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "correo_institucional": "test.usuario@decokasas.com",
+  "contrasena": "ClaveModificada123!"
+}
