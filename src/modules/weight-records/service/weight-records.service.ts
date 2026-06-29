@@ -1,4 +1,5 @@
 import { weightRecordsRepository } from '../repository/weight-records.repository';
+import { alertsService } from '../../alerts/service/alerts.service';
 import { ConflictError, NotFoundError } from '@errors/AppError';
 
 export const weightRecordsService = {
@@ -19,6 +20,11 @@ export const weightRecordsService = {
     const registro  = await weightRecordsRepository.create(perfilId, pesoKg);
     const ayer      = await weightRecordsRepository.findYesterday(perfilId);
     const primero   = await weightRecordsRepository.findFirst(perfilId);
+    const fechaRegistro = typeof registro.fecha === 'string'
+      ? registro.fecha.split('T')[0]
+      : new Date(registro.fecha).toISOString().split('T')[0];
+
+    await alertsService.evaluateWeightAlert(perfilId, pesoKg, fechaRegistro);
 
     return {
       ...registro,

@@ -1,6 +1,7 @@
 import { additionalIntakeRepository } from '../repository/additional-intake.repository';
 import cloudinary from '@config/cloudinary';
 import { calorieControlRepository, ControlCaloricoRow }   from '../../calorie-control/repository/calorie-control.repository';
+import { alertsService } from '../../alerts/service/alerts.service';
 import { estimateFromDescription, estimateFromImage } from '../../../infrastructure/calorie-estimator';
 import {
   CreateAdditionalIntakeDto,
@@ -323,6 +324,8 @@ export const additionalIntakeService = {
                  `Considera hacer ejercicio para compensar.`,
       };
     }
+
+    await alertsService.evaluateCalorieExcessAlertForPatient(perfilId, consumo.fecha);
 
     return {
       consumo:                  consumoConfirmado,

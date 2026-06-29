@@ -60,6 +60,7 @@ export const alertsRouter = Router();
  *                 sin_revisar: 5
  */
 alertsRouter.get('/', authenticate, requireRole('nutricionista', 'administrador'), alertsController.list);
+alertsRouter.post('/evaluate/daily', authenticate, requireRole('nutricionista', 'administrador'), alertsController.evaluateDaily);
 
 /**
  * @swagger

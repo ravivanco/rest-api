@@ -39,8 +39,7 @@ export const dashboardRepository = {
 
     const alertasResult = await pool.query<{ total: string }>(
       `SELECT COUNT(*) as total FROM alertas_sistema
-       WHERE id_nutricionista = $1 AND revisada = FALSE`,
-      [nutricionistaId],
+       WHERE revisada = FALSE`,
     );
 
     const row = result.rows[0];

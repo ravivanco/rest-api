@@ -7,8 +7,9 @@ export const alertsController = {
   async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const q      = req.query;
-      const result = await alertsService.getAlerts(req.user!.id, {
+      const result = await alertsService.getAlerts({
         tipo:     q.tipo     as string | undefined,
+        severidad: q.severidad as string | undefined,
         revisada: q.revisada as string | undefined,
         page:     parseInt(String(q.page), 10) || 1,
         limit:    parseInt(String(q.limit), 10) || 20,
@@ -20,8 +21,16 @@ export const alertsController = {
   async markReviewed(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const alertId = parseInt(String(req.params.id), 10);
-      const result  = await alertsService.markReviewed(alertId, req.user!.id);
+      const result  = await alertsService.markReviewed(alertId);
       ok(res, result, 'Alerta marcada como revisada');
+    } catch (error) { next(error); }
+  },
+
+  async evaluateDaily(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const fecha = typeof req.body?.fecha === 'string' ? req.body.fecha : undefined;
+      const result = await alertsService.evaluateDailyAlerts(fecha);
+      ok(res, result, 'Evaluación diaria de alertas completada');
     } catch (error) { next(error); }
   },
 
